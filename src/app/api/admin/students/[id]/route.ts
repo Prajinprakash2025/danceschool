@@ -1,0 +1,24 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
+import { deleteStudent } from '@/lib/db';
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  if (!id) {
+    return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
+  }
+
+  const success = await deleteStudent(id);
+  if (success) {
+    return NextResponse.json({ success: true, message: 'Student removed' });
+  }
+  return NextResponse.json({ error: 'Could not delete student' }, { status: 500 });
+}

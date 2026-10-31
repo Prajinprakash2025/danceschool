@@ -1,0 +1,117 @@
+{
+  "admins": [
+    {
+      "id": "admin-1",
+      "username": "admin",
+      "name": "Academy Administrator",
+      "email": "admin@natyadance.com",
+      "role": "ADMIN",
+      "created_at": "2026-10-31T11:12:07.845Z"
+    }
+  ],
+  "students": [
+    {
+      "id": "std-1",
+      "student_id": "DS-2026-001",
+      "name": "Arundhati Menon",
+      "parent_name": "Radhika Menon",
+      "phone": "9847123456",
+      "email": "radhika@example.com",
+      "batch": "Bharatanatyam - Senior",
+      "password": "dance@2026",
+      "password_hash": "$2b$10$8HdcDa0.EyznG0fcU0h9LeBgkHUEykXLgEvK2l7Si.NJZ8F5SlY5i",
+      "role": "STUDENT",
+      "status": "ACTIVE",
+      "created_at": "2026-10-31T11:12:08.008Z"
+    },
+    {
+      "id": "std-2",
+      "student_id": "DS-2026-002",
+      "name": "Karthik S",
+      "parent_name": "Suresh Kumar",
+      "phone": "9847234567",
+      "email": "suresh@example.com",
+      "batch": "Kuchipudi - Junior",
+      "password": "dance@2026",
+      "password_hash": "$2b$10$o7ocwaYKzxR6xK6R/yewfu2mJY58AwMG0QpubVbzWeG0PKWeBhiZ2",
+      "role": "STUDENT",
+      "status": "ACTIVE",
+      "created_at": "2026-10-31T11:12:08.141Z"
+    },
+    {
+      "id": "std-3",
+      "student_id": "DS-2026-003",
+      "name": "Devika Nair",
+      "parent_name": "Pramod Nair",
+      "phone": "9847345678",
+      "email": "pramod@example.com",
+      "batch": "Mohiniyattam - Beginners",
+      "password": "dance@2026",
+      "password_hash": "$2b$10$d96mbg8DnHEZBGWktQUanufbQY2o5tChV/fjYVe0K3kv9jdBYS9RS",
+      "role": "STUDENT",
+      "status": "ACTIVE",
+      "created_at": "2026-10-31T11:12:08.279Z"
+    }
+  ],
+  "funds": [
+    {
+      "id": "fund-1",
+      "title": "Annual Day Stage & Costume Fund",
+      "description": "Fund for stage setup, audio system, and traditional dance costumes for the annual festival.",
+      "amount": 1500,
+      "due_date": "2026-11-25",
+      "batch": "ALL",
+      "created_at": "2026-10-31T11:12:08.279Z"
+    },
+    {
+      "id": "fund-2",
+      "title": "Monthly Tuition Fee - November 2026",
+      "description": "Regular monthly dance training & choreography fee.",
+      "amount": 800,
+      "due_date": "2026-11-10",
+      "batch": "ALL",
+      "created_at": "2026-10-31T11:12:08.279Z"
+    }
+  ],
+  "student_fees": [
+    {
+      "id": "fee-1",
+      "student_id": "std-1",
+      "fund_id": "fund-1",
+      "amount": 1500,
+      "status": "PAID",
+      "paid_amount": 1500,
+      "paid_at": "2026-10-31T11:12:08.280Z",
+      "razorpay_order_id": "order_mock_001",
+      "razorpay_payment_id": "pay_mock_001",
+      "created_at": "2026-10-31T11:12:08.280Z"
+    },
+    {
+      "id": "fee-2",
+      "student_id": "std-1",
+      "fund_id": "fund-2",
+      "amount": 800,
+      "status": "PENDING",
+      "paid_amount": 0,
+      "created_at": "2026-10-31T11:12:08.280Z"
+    },
+    {
+      "id": "fee-3",
+      "student_id": "std-2",
+      "fund_id": "fund-1",
+      "amount": 1500,
+      "status": "PENDING",
+      "paid_amount": 0,
+      "created_at": "2026-10-31T11:12:08.280Z"
+    },
+    {
+      "id": "fee-4",
+      "student_id": "std-3",
+      "fund_id": "fund-1",
+      "amount": 1500,
+      "status": "PENDING",
+      "paid_amount": 0,
+      "created_at": "2026-10-31T11:12:08.280Z"
+    }
+  ]
+}
