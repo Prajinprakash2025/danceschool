@@ -501,53 +501,57 @@ export async function updateStudent(
     password?: string;
   }
 ): Promise<Student | null> {
-  const updateObj: any = {};
-  if (payload.name !== undefined) updateObj.name = payload.name;
-  if (payload.parent_name !== undefined) updateObj.parent_name = payload.parent_name;
-  if (payload.phone !== undefined) updateObj.phone = payload.phone;
-  if (payload.email !== undefined) updateObj.email = payload.email;
-  if (payload.batch !== undefined) updateObj.batch = payload.batch;
-  if (payload.discount_amount !== undefined) updateObj.discount_amount = Number(payload.discount_amount);
-  if (payload.joining_date !== undefined) updateObj.joining_date = payload.joining_date;
-  if (payload.fee_due_day !== undefined) updateObj.fee_due_day = Number(payload.fee_due_day);
-  if (payload.password && payload.password.trim() !== '') {
-    updateObj.password = payload.password.trim();
-    updateObj.password_hint = payload.password.trim();
-    updateObj.password_hash = hashPassword(payload.password.trim());
-  }
-
   if (isSupabaseConfigured && supabase) {
+    const supabaseUpdateObj: any = {};
+    if (payload.name !== undefined) supabaseUpdateObj.name = payload.name;
+    if (payload.parent_name !== undefined) supabaseUpdateObj.parent_name = payload.parent_name;
+    if (payload.phone !== undefined) supabaseUpdateObj.phone = payload.phone;
+    if (payload.email !== undefined) supabaseUpdateObj.email = payload.email;
+    if (payload.batch !== undefined) supabaseUpdateObj.batch = payload.batch;
+    if (payload.discount_amount !== undefined) supabaseUpdateObj.discount_amount = Number(payload.discount_amount);
+    if (payload.joining_date !== undefined) supabaseUpdateObj.joining_date = payload.joining_date;
+    if (payload.fee_due_day !== undefined) supabaseUpdateObj.fee_due_day = Number(payload.fee_due_day);
+    if (payload.password && payload.password.trim() !== '') {
+      supabaseUpdateObj.password_hint = payload.password.trim();
+      supabaseUpdateObj.password_hash = hashPassword(payload.password.trim());
+    }
+
+    const idCol = id.startsWith('DS-') ? 'student_id' : 'id';
     let { data, error } = await supabase
       .from('students')
-      .update(updateObj)
-      .eq('id', id)
+      .update(supabaseUpdateObj)
+      .eq(idCol, id)
       .select()
       .single();
 
     if (error) {
-      delete updateObj.discount_amount;
-      delete updateObj.joining_date;
-      delete updateObj.fee_due_day;
+      delete supabaseUpdateObj.discount_amount;
+      delete supabaseUpdateObj.joining_date;
+      delete supabaseUpdateObj.fee_due_day;
       const retry = await supabase
         .from('students')
-        .update(updateObj)
-        .eq('id', id)
+        .update(supabaseUpdateObj)
+        .eq(idCol, id)
         .select()
         .single();
       data = retry.data;
       error = retry.error;
     }
 
-    if (error || !data) return null;
+    if (error || !data) {
+      console.error('Supabase update student error:', error);
+      return null;
+    }
+
     return {
       ...data,
-      password: payload.password || data.password || data.password_hint || 'dance@2026',
+      password: payload.password || data.password_hint || 'dance@2026',
       role: 'STUDENT',
     };
   }
 
   const db = readLocalDb();
-  const student = db.students.find((s) => s.id === id);
+  const student = db.students.find((s) => s.id === id || s.student_id === id);
   if (!student) return null;
 
   if (payload.name !== undefined) student.name = payload.name;
@@ -568,7 +572,7 @@ export async function updateStudent(
     const funds = await getAllFunds();
     const fundsMap = new Map(funds.map((f) => [f.id, f]));
     db.student_fees.forEach((f) => {
-      if (f.student_id === id && f.status === 'PENDING') {
+      if ((f.student_id === student.id || f.student_id === student.student_id) && f.status === 'PENDING') {
         const fund = fundsMap.get(f.fund_id);
         const original = fund ? Number(fund.amount) : Number(f.amount);
         f.discount_applied = Number(payload.discount_amount);
@@ -582,13 +586,14 @@ export async function updateStudent(
 }
 
 export async function deleteStudent(id: string): Promise<boolean> {
+  const idCol = id.startsWith('DS-') ? 'student_id' : 'id';
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('students').delete().eq('id', id);
+    const { error } = await supabase.from('students').delete().eq(idCol, id);
     return !error;
   }
 
   const db = readLocalDb();
-  db.students = db.students.filter((s) => s.id !== id);
+  db.students = db.students.filter((s) => s.id !== id && s.student_id !== id);
   db.student_fees = db.student_fees.filter((f) => f.student_id !== id);
   writeLocalDb(db);
   return true;

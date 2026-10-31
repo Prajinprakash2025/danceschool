@@ -11,7 +11,8 @@ export async function PUT(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = decodeURIComponent(rawId || '');
   if (!id) {
     return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
   }
@@ -22,8 +23,9 @@ export async function PUT(
     if (updated) {
       return NextResponse.json({ success: true, student: updated });
     }
-    return NextResponse.json({ error: 'Student not found or could not be updated' }, { status: 404 });
+    return NextResponse.json({ error: 'Could not update student. Please check database permissions or retry.' }, { status: 400 });
   } catch (err: any) {
+    console.error('API update student error:', err);
     return NextResponse.json({ error: err.message || 'Error updating student' }, { status: 500 });
   }
 }
