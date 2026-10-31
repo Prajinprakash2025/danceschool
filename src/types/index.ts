@@ -27,6 +27,8 @@ export interface Student {
   email?: string;
   batch: string;
   discount_amount?: number; // e.g. 500 (sibling / scholarship concession)
+  joining_date?: string; // e.g. '2027-03-23' - date student enrolled
+  fee_due_day?: number; // e.g. 23 - day of the month their monthly fee is due
   password?: string;
   password_hash?: string;
   role: 'STUDENT';

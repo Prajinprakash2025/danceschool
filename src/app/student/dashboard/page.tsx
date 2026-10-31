@@ -244,18 +244,22 @@ export default function StudentDashboard() {
             {student?.name}
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-stone-400 pt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-stone-400 pt-1">
             <div className="bg-stone-950/60 p-2.5 rounded-xl border border-stone-800/80">
               <span className="block text-[10px] text-stone-500 uppercase">Parent Name</span>
-              <strong className="text-stone-200">{student?.parent_name}</strong>
+              <strong className="text-stone-200 truncate block">{student?.parent_name}</strong>
             </div>
             <div className="bg-stone-950/60 p-2.5 rounded-xl border border-stone-800/80">
               <span className="block text-[10px] text-stone-500 uppercase">Contact WhatsApp</span>
-              <strong className="text-stone-200 font-mono">{student?.phone}</strong>
+              <strong className="text-stone-200 font-mono block truncate">{student?.phone}</strong>
             </div>
             <div className="bg-stone-950/60 p-2.5 rounded-xl border border-stone-800/80">
               <span className="block text-[10px] text-stone-500 uppercase">Class Batch</span>
-              <strong className="text-amber-300">{student?.batch}</strong>
+              <strong className="text-amber-300 block truncate">{student?.batch}</strong>
+            </div>
+            <div className="bg-stone-950/60 p-2.5 rounded-xl border border-stone-800/80">
+              <span className="block text-[10px] text-stone-500 uppercase">Fee Due Day</span>
+              <strong className="text-emerald-400 block">Every {student?.fee_due_day || 1}th</strong>
             </div>
           </div>
         </div>

@@ -50,12 +50,44 @@ export default function AdminDashboard() {
   const [funds, setFunds] = useState<Fund[]>([]);
   const [allFees, setAllFees] = useState<StudentFee[]>([]);
 
-  // Modals
+  // Modals & Edit States
   const [showAddStudent, setShowAddStudent] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editingStudentForm, setEditingStudentForm] = useState({
+    name: '',
+    parent_name: '',
+    phone: '',
+    email: '',
+    batch: '',
+    discount_amount: '0',
+    joining_date: '',
+    fee_due_day: '1',
+    password: '',
+  });
+
   const [showAddBatch, setShowAddBatch] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
+  const [editingBatchForm, setEditingBatchForm] = useState({
+    name: '',
+    timing: '',
+    instructor: '',
+    monthly_fee: '1000',
+  });
+
   const [showAddFund, setShowAddFund] = useState(false);
+  const [editingFund, setEditingFund] = useState<Fund | null>(null);
+  const [editingFundForm, setEditingFundForm] = useState({
+    title: '',
+    period_start: '',
+    period_end: '',
+    description: '',
+    amount: '2000',
+    due_date: '',
+    batch: 'ALL',
+  });
+
   const [selectedPaymentDetail, setSelectedPaymentDetail] = useState<StudentFee | null>(null);
-  const [editingFee, setEditingFee] = useState<{ id: string; amount: string; studentName: string } | null>(null);
+  const [editingFee, setEditingFee] = useState<{ id: string; amount: string; due_date: string; studentName: string } | null>(null);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
   // New Student Form
@@ -66,6 +98,8 @@ export default function AdminDashboard() {
     email: '',
     batch: '',
     discount_amount: '0',
+    joining_date: '',
+    fee_due_day: '',
     password: '',
   });
   const [savingStudent, setSavingStudent] = useState(false);
@@ -213,11 +247,56 @@ export default function AdminDashboard() {
         batch: batches[0]?.name || '',
         discount_amount: '0',
         password: '',
+        joining_date: '',
+        fee_due_day: '',
       });
       await fetchDashboardData();
       alert(`Student enrolled successfully! Auto-generated ID: ${data.student.student_id}`);
     } catch (err: any) {
       alert(err.message || 'Error enrolling student');
+    } finally {
+      setSavingStudent(false);
+    }
+  };
+
+  const openEditStudent = (std: Student) => {
+    setEditingStudent(std);
+    setEditingStudentForm({
+      name: std.name,
+      parent_name: std.parent_name,
+      phone: std.phone,
+      email: std.email || '',
+      batch: std.batch,
+      discount_amount: String(std.discount_amount || 0),
+      joining_date: std.joining_date || std.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+      fee_due_day: String(std.fee_due_day || (std.joining_date ? new Date(std.joining_date).getDate() : 1)),
+      password: std.password || '',
+    });
+  };
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    setSavingStudent(true);
+
+    try {
+      const res = await fetch(`/api/admin/students/${editingStudent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingStudentForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to update student profile');
+        return;
+      }
+
+      setEditingStudent(null);
+      await fetchDashboardData();
+      alert('Student profile & fee settings updated successfully!');
+    } catch (err: any) {
+      alert(err.message || 'Error updating student');
     } finally {
       setSavingStudent(false);
     }
@@ -271,6 +350,44 @@ export default function AdminDashboard() {
     }
   };
 
+  const openEditBatch = (batch: Batch) => {
+    setEditingBatch(batch);
+    setEditingBatchForm({
+      name: batch.name,
+      timing: batch.timing || '',
+      instructor: batch.instructor || '',
+      monthly_fee: String(batch.monthly_fee || 1000),
+    });
+  };
+
+  const handleUpdateBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBatch) return;
+    setSavingBatch(true);
+
+    try {
+      const res = await fetch(`/api/admin/batches/${editingBatch.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingBatchForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to update batch');
+        return;
+      }
+
+      setEditingBatch(null);
+      await fetchDashboardData();
+      alert('Dance batch updated successfully!');
+    } catch (err: any) {
+      alert(err.message || 'Error updating batch');
+    } finally {
+      setSavingBatch(false);
+    }
+  };
+
   const handleDeleteBatch = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete batch "${name}"?`)) return;
 
@@ -316,18 +433,77 @@ export default function AdminDashboard() {
     }
   };
 
+  const openEditFund = (fund: Fund) => {
+    setEditingFund(fund);
+    setEditingFundForm({
+      title: fund.title,
+      period_start: fund.period_start || '',
+      period_end: fund.period_end || '',
+      description: fund.description || '',
+      amount: String(fund.amount),
+      due_date: fund.due_date || '',
+      batch: fund.batch || 'ALL',
+    });
+  };
+
+  const handleUpdateFund = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFund) return;
+    setSavingFund(true);
+
+    try {
+      const res = await fetch(`/api/admin/funds/${editingFund.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingFundForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to update fee campaign');
+        return;
+      }
+
+      setEditingFund(null);
+      await fetchDashboardData();
+      alert('Fee demand & prices updated successfully!');
+    } catch (err: any) {
+      alert(err.message || 'Error updating fee');
+    } finally {
+      setSavingFund(false);
+    }
+  };
+
+  const handleDeleteFund = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete fee "${title}"? This will also remove pending dues for this fee.`)) return;
+    try {
+      const res = await fetch(`/api/admin/funds/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        await fetchDashboardData();
+        alert('Fee campaign removed successfully');
+      } else {
+        alert('Could not delete fee');
+      }
+    } catch {
+      alert('Error deleting fee');
+    }
+  };
+
   const handleUpdateFeeAmount = async () => {
     if (!editingFee) return;
     try {
       const res = await fetch(`/api/admin/fees/${editingFee.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: editingFee.amount }),
+        body: JSON.stringify({ 
+          amount: editingFee.amount,
+          due_date: editingFee.due_date,
+        }),
       });
       if (res.ok) {
         setEditingFee(null);
         await fetchDashboardData();
-        alert('Fee amount updated successfully!');
+        alert('Fee details updated successfully!');
       } else {
         alert('Could not update fee amount');
       }
@@ -748,7 +924,16 @@ export default function AdminDashboard() {
                           <td className="py-3.5 px-4 font-mono font-bold text-orange-400">
                             {std.student_id}
                           </td>
-                          <td className="py-3.5 px-4 font-semibold text-white">{std.name}</td>
+                          <td className="py-3.5 px-4 font-semibold text-white">
+                            <div>{std.name}</div>
+                            {std.joining_date ? (
+                              <div className="text-[10px] text-stone-400 flex items-center gap-1 mt-0.5">
+                                <Calendar className="w-3 h-3 text-orange-400" />
+                                <span>Joined: {new Date(std.joining_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}</span>
+                                <span className="text-amber-400 font-medium">• Due on {std.fee_due_day || new Date(std.joining_date).getDate()}th</span>
+                              </div>
+                            ) : null}
+                          </td>
                           <td className="py-3.5 px-4">
                             <div className="text-stone-300">{std.parent_name}</div>
                             <div className="text-[11px] text-stone-500 font-mono">{std.phone}</div>
@@ -786,12 +971,22 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => handleDeleteStudent(std.id, std.name)}
-                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => openEditStudent(std)}
+                                title="Edit Student & Due Dates"
+                                className="p-1.5 rounded-lg text-amber-400 hover:text-amber-200 hover:bg-amber-950/40"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteStudent(std.id, std.name)}
+                                title="Delete Student"
+                                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -818,12 +1013,22 @@ export default function AdminDashboard() {
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">
                         {enrolledCount} Enrolled
                       </span>
-                      <button
-                        onClick={() => handleDeleteBatch(batch.id, batch.name)}
-                        className="text-stone-500 hover:text-rose-400 p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditBatch(batch)}
+                          title="Edit Batch & Price"
+                          className="text-stone-400 hover:text-amber-300 p-1 rounded-lg hover:bg-stone-800"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBatch(batch.id, batch.name)}
+                          title="Delete Batch"
+                          className="text-stone-500 hover:text-rose-400 p-1 rounded-lg hover:bg-stone-800"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <h3 className="font-bold text-lg text-white mt-2">{batch.name}</h3>
@@ -872,9 +1077,25 @@ export default function AdminDashboard() {
                         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">
                           {fund.period_start ? 'Period / Term Fee' : 'Special Fund'}
                         </span>
-                        <span className="font-extrabold text-lg text-white">
-                          ₹{Number(fund.amount).toLocaleString('en-IN')}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-lg text-white">
+                            ₹{Number(fund.amount).toLocaleString('en-IN')}
+                          </span>
+                          <button
+                            onClick={() => openEditFund(fund)}
+                            title="Edit Fee Title & Price"
+                            className="text-stone-400 hover:text-amber-300 p-1 rounded-lg hover:bg-stone-800"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFund(fund.id, fund.title)}
+                            title="Delete Fee Campaign"
+                            className="text-stone-500 hover:text-rose-400 p-1 rounded-lg hover:bg-stone-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <h3 className="font-bold text-base text-white mt-2">{fund.title}</h3>
@@ -1015,6 +1236,7 @@ export default function AdminDashboard() {
                                     setEditingFee({
                                       id: fee.id,
                                       amount: String(fee.amount),
+                                      due_date: fee.due_date || '',
                                       studentName: fee.student_name || '',
                                     })
                                   }
@@ -1113,6 +1335,45 @@ export default function AdminDashboard() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Joining Date (Admission)
+                  </label>
+                  <input
+                    type="date"
+                    value={studentForm.joining_date}
+                    onChange={(e) => {
+                      const jDate = e.target.value;
+                      const day = jDate ? new Date(jDate).getDate() : 1;
+                      setStudentForm({ ...studentForm, joining_date: jDate, fee_due_day: String(day) });
+                    }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">
+                    e.g. If student joined on March 5 or March 23
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Monthly Fee Due Day (1-31)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="e.g. 23"
+                    value={studentForm.fee_due_day}
+                    onChange={(e) => setStudentForm({ ...studentForm, fee_due_day: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">
+                    Fee due notice cycles on this day each month
+                  </span>
                 </div>
               </div>
 
@@ -1345,6 +1606,19 @@ export default function AdminDashboard() {
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                Individual Due Date
+              </label>
+              <input
+                type="date"
+                value={editingFee.due_date}
+                onChange={(e) => setEditingFee({ ...editingFee, due_date: e.target.value })}
+                style={{ colorScheme: 'dark' }}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+              />
+            </div>
+
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
@@ -1540,6 +1814,378 @@ export default function AdminDashboard() {
                   className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
                 >
                   {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Batch'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- EDIT STUDENT PROFILE MODAL ---------------- */}
+      {editingStudent && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+              <div>
+                <h3 className="text-xl font-bold text-white">Edit Student Profile & Fee Settings</h3>
+                <p className="text-xs text-stone-400 mt-1">
+                  ID: <span className="text-orange-400 font-mono font-bold">{editingStudent.student_id}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingStudent(null)}
+                className="text-stone-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateStudent} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Student Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStudentForm.name}
+                    onChange={(e) => setEditingStudentForm({ ...editingStudentForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Parent / Guardian Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingStudentForm.parent_name}
+                    onChange={(e) => setEditingStudentForm({ ...editingStudentForm, parent_name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Phone (WhatsApp) *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editingStudentForm.phone}
+                    onChange={(e) => setEditingStudentForm({ ...editingStudentForm, phone: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Classical Dance Batch *
+                  </label>
+                  <select
+                    value={editingStudentForm.batch}
+                    onChange={(e) => setEditingStudentForm({ ...editingStudentForm, batch: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  >
+                    {batches.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Joining Date & Fee Due Cycle */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Joining Date (Admission)
+                  </label>
+                  <input
+                    type="date"
+                    value={editingStudentForm.joining_date}
+                    onChange={(e) => {
+                      const jDate = e.target.value;
+                      const day = jDate ? new Date(jDate).getDate() : 1;
+                      setEditingStudentForm({ ...editingStudentForm, joining_date: jDate, fee_due_day: String(day) });
+                    }}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">
+                    e.g. Joined on March 5 or March 23
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Monthly Fee Due Day (1-31)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={editingStudentForm.fee_due_day}
+                    onChange={(e) => setEditingStudentForm({ ...editingStudentForm, fee_due_day: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">
+                    Fee notice cycles on this day each month
+                  </span>
+                </div>
+              </div>
+
+              {/* Concession / Sibling Discount */}
+              <div className="p-3.5 rounded-2xl bg-stone-950 border border-stone-800 space-y-1.5">
+                <label className="block text-xs font-bold text-emerald-400 uppercase flex items-center gap-1.5">
+                  <Gift className="w-3.5 h-3.5" /> Sibling / Concession Discount per Fee (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingStudentForm.discount_amount}
+                  onChange={(e) => setEditingStudentForm({ ...editingStudentForm, discount_amount: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-900 border border-stone-700 text-white font-bold text-sm focus:border-emerald-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-stone-400">
+                  Changing this updates this student&apos;s pending fee deductions immediately.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Change Login Password
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter new password or leave current"
+                  value={editingStudentForm.password}
+                  onChange={(e) => setEditingStudentForm({ ...editingStudentForm, password: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white font-mono text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingStudent(null)}
+                  className="px-4 py-2.5 rounded-xl border border-stone-800 text-stone-400 hover:text-white text-sm font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStudent}
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
+                >
+                  {savingStudent ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- EDIT BATCH MODAL ---------------- */}
+      {editingBatch && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+              <h3 className="text-xl font-bold text-white">Edit Classical Dance Batch</h3>
+              <button
+                onClick={() => setEditingBatch(null)}
+                className="text-stone-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateBatch} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Batch Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingBatchForm.name}
+                  onChange={(e) => setEditingBatchForm({ ...editingBatchForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Class Schedule & Timings
+                </label>
+                <input
+                  type="text"
+                  value={editingBatchForm.timing}
+                  onChange={(e) => setEditingBatchForm({ ...editingBatchForm, timing: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Dance Instructor (Guru)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingBatchForm.instructor}
+                    onChange={(e) => setEditingBatchForm({ ...editingBatchForm, instructor: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Monthly Tuition Fee Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="100"
+                    value={editingBatchForm.monthly_fee}
+                    onChange={(e) => setEditingBatchForm({ ...editingBatchForm, monthly_fee: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm font-bold focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingBatch(null)}
+                  className="px-4 py-2.5 rounded-xl border border-stone-800 text-stone-400 hover:text-white text-sm font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBatch}
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
+                >
+                  {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Batch'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- EDIT FUND / FEE CAMPAIGN MODAL ---------------- */}
+      {editingFund && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-800">
+              <h3 className="text-xl font-bold text-white">Edit Fee Demand & Price</h3>
+              <button
+                onClick={() => setEditingFund(null)}
+                className="text-stone-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateFund} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Fee Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingFundForm.title}
+                  onChange={(e) => setEditingFundForm({ ...editingFundForm, title: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Period From (Start Date)
+                  </label>
+                  <input
+                    type="date"
+                    value={editingFundForm.period_start}
+                    onChange={(e) => setEditingFundForm({ ...editingFundForm, period_start: e.target.value })}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Period To (End Date)
+                  </label>
+                  <input
+                    type="date"
+                    value={editingFundForm.period_end}
+                    onChange={(e) => setEditingFundForm({ ...editingFundForm, period_end: e.target.value })}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Amount / Price per Student (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="10"
+                    value={editingFundForm.amount}
+                    onChange={(e) => setEditingFundForm({ ...editingFundForm, amount: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm font-bold focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Payment Due Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editingFundForm.due_date}
+                    onChange={(e) => setEditingFundForm({ ...editingFundForm, due_date: e.target.value })}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Description / Remarks
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingFundForm.description}
+                  onChange={(e) => setEditingFundForm({ ...editingFundForm, description: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingFund(null)}
+                  className="px-4 py-2.5 rounded-xl border border-stone-800 text-stone-400 hover:text-white text-sm font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingFund}
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  {savingFund ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
                 </button>
               </div>
             </form>

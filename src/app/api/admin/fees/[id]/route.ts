@@ -12,13 +12,13 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const { amount } = await req.json();
+  const { amount, due_date } = await req.json();
 
   if (!id || amount === undefined) {
     return NextResponse.json({ error: 'Fee ID and amount required' }, { status: 400 });
   }
 
-  const success = await updateFeeAmount(id, Number(amount));
+  const success = await updateFeeAmount(id, Number(amount), due_date);
   if (success) {
     return NextResponse.json({ success: true, message: 'Fee updated successfully' });
   }

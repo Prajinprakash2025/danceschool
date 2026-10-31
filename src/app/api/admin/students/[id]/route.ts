@@ -1,6 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { deleteStudent } from '@/lib/db';
+import { deleteStudent, updateStudent } from '@/lib/db';
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  if (!id) {
+    return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
+  }
+
+  try {
+    const body = await req.json();
+    const updated = await updateStudent(id, body);
+    if (updated) {
+      return NextResponse.json({ success: true, student: updated });
+    }
+    return NextResponse.json({ error: 'Student not found or could not be updated' }, { status: 404 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Error updating student' }, { status: 500 });
+  }
+}
 
 export async function DELETE(
   _req: NextRequest,
