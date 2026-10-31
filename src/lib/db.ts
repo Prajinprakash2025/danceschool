@@ -464,19 +464,34 @@ export async function createFund(payload: {
   batch: string;
 }): Promise<Fund> {
   if (isSupabaseConfigured && supabase) {
-    const { data: fund, error } = await supabase
+    const insertObj: any = {
+      title: payload.title,
+      description: payload.description || '',
+      amount: payload.amount,
+      due_date: payload.due_date,
+      batch: payload.batch,
+    };
+    if (payload.fee_type) insertObj.fee_type = payload.fee_type;
+    if (payload.month_name) insertObj.month_name = payload.month_name;
+
+    let { data: fund, error } = await supabase
       .from('funds')
-      .insert({
-        title: payload.title,
-        fee_type: payload.fee_type || 'MONTHLY',
-        month_name: payload.month_name || '',
-        description: payload.description || '',
-        amount: payload.amount,
-        due_date: payload.due_date,
-        batch: payload.batch,
-      })
+      .insert(insertObj)
       .select()
       .single();
+
+    // Fallback if fee_type column doesn't exist in Supabase table yet
+    if (error && (error.message.includes('fee_type') || error.message.includes('schema cache'))) {
+      delete insertObj.fee_type;
+      delete insertObj.month_name;
+      const retry = await supabase
+        .from('funds')
+        .insert(insertObj)
+        .select()
+        .single();
+      fund = retry.data;
+      error = retry.error;
+    }
 
     if (error) throw new Error(error.message);
 
@@ -485,7 +500,7 @@ export async function createFund(payload: {
       (s) => payload.batch === 'ALL' || s.batch === payload.batch
     );
 
-    if (eligibleStudents.length > 0) {
+    if (eligibleStudents.length > 0 && fund) {
       const feeInserts = eligibleStudents.map((s) => ({
         student_id: s.id,
         fund_id: fund.id,

@@ -79,12 +79,34 @@ export default function AdminDashboard() {
   const [selectedMonth, setSelectedMonth] = useState('November 2026');
   const [fundForm, setFundForm] = useState({
     title: 'Monthly Dance Fee - November 2026',
-    description: '',
+    description: 'Regular monthly dance training & choreography fee for November.',
     amount: '1000',
-    due_date: '',
+    due_date: '2026-11-01',
     batch: 'ALL',
   });
   const [savingFund, setSavingFund] = useState(false);
+
+  // Month to default 1st day map
+  const monthDateMap: Record<string, string> = {
+    'November 2026': '2026-11-01',
+    'December 2026': '2026-12-01',
+    'January 2027': '2027-01-01',
+    'February 2027': '2027-02-01',
+    'March 2027': '2027-03-01',
+    'April 2027': '2027-04-01',
+    'May 2027': '2027-05-01',
+  };
+
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+    const dueDate = monthDateMap[month] || '2026-11-01';
+    setFundForm((prev) => ({
+      ...prev,
+      title: `Monthly Dance Fee - ${month}`,
+      description: `Regular monthly dance training & choreography fee for ${month}.`,
+      due_date: dueDate,
+    }));
+  };
 
   // Search & Filter
   const [searchStudent, setSearchStudent] = useState('');
@@ -1194,13 +1216,24 @@ export default function AdminDashboard() {
 
       {/* ---------------- CREATE FEE / FUND DEMAND MODAL ---------------- */}
       {showAddFund && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5">
             <div>
               <h3 className="text-xl font-bold text-white">Create Dance Fee Demand</h3>
               <p className="text-xs text-stone-400 mt-1">
-                Automatically allocate regular monthly fees or special festival funds to students.
+                Allocate regular monthly fees (due on 1st) or special festival funds to students.
               </p>
+            </div>
+
+            {/* Explanatory Banner */}
+            <div className="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 space-y-1">
+              <strong className="block text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-orange-400" /> How Dance School Fees Work:
+              </strong>
+              <span>
+                Each month on the 1st (e.g., 01-11-2026), students receive their monthly tuition notice. 
+                Parents log into their portal and pay instantly via UPI (GPay/PhonePe) or Cards.
+              </span>
             </div>
 
             {/* Fee Type Selector Tabs */}
@@ -1209,10 +1242,7 @@ export default function AdminDashboard() {
                 type="button"
                 onClick={() => {
                   setFeeCategoryType('MONTHLY');
-                  setFundForm((prev) => ({
-                    ...prev,
-                    title: `Monthly Dance Fee - ${selectedMonth}`,
-                  }));
+                  handleMonthChange(selectedMonth);
                 }}
                 className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                   feeCategoryType === 'MONTHLY'
@@ -1229,6 +1259,8 @@ export default function AdminDashboard() {
                   setFundForm((prev) => ({
                     ...prev,
                     title: 'Annual Day Stage & Costume Fund',
+                    description: 'Traditional dance costumes, stage lighting, and audio orchestra setup.',
+                    amount: '1500',
                   }));
                 }}
                 className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
@@ -1249,21 +1281,20 @@ export default function AdminDashboard() {
                   </label>
                   <select
                     value={selectedMonth}
-                    onChange={(e) => {
-                      setSelectedMonth(e.target.value);
-                      setFundForm((prev) => ({
-                        ...prev,
-                        title: `Monthly Dance Fee - ${e.target.value}`,
-                      }));
-                    }}
+                    onChange={(e) => handleMonthChange(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
                   >
-                    <option value="November 2026">November 2026</option>
-                    <option value="December 2026">December 2026</option>
-                    <option value="January 2027">January 2027</option>
-                    <option value="February 2027">February 2027</option>
-                    <option value="March 2027">March 2027</option>
+                    <option value="November 2026">November 2026 (Due: 01-11-2026)</option>
+                    <option value="December 2026">December 2026 (Due: 01-12-2026)</option>
+                    <option value="January 2027">January 2027 (Due: 01-01-2027)</option>
+                    <option value="February 2027">February 2027 (Due: 01-02-2027)</option>
+                    <option value="March 2027">March 2027 (Due: 01-03-2027)</option>
+                    <option value="April 2027">April 2027 (Due: 01-04-2027)</option>
+                    <option value="May 2027">May 2027 (Due: 01-05-2027)</option>
                   </select>
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    Due date is automatically set to the 1st of this month.
+                  </p>
                 </div>
               ) : (
                 <div>
@@ -1297,15 +1328,17 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                    Due Date *
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1 flex items-center justify-between">
+                    <span>Due Date *</span>
+                    <span className="text-[10px] text-orange-400 font-normal">Every 1st of Month</span>
                   </label>
                   <input
                     type="date"
                     required
                     value={fundForm.due_date}
                     onChange={(e) => setFundForm({ ...fundForm, due_date: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
                   />
                 </div>
               </div>
@@ -1328,7 +1361,18 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3">
+              {/* Live Preview Summary Card */}
+              <div className="p-3 rounded-xl bg-stone-950 border border-stone-800 text-xs space-y-1">
+                <span className="text-stone-500 uppercase text-[10px] font-bold block">Summary Preview:</span>
+                <div className="font-semibold text-white">
+                  {fundForm.title} • <span className="text-emerald-400">₹{fundForm.amount || '0'}</span>
+                </div>
+                <div className="text-[11px] text-stone-400">
+                  Due: <strong className="text-orange-400">{fundForm.due_date || '01-11-2026'}</strong> • Batch: {fundForm.batch}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowAddFund(false)}
@@ -1339,7 +1383,7 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={savingFund}
-                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer"
                 >
                   {savingFund ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create & Assign Fee'}
                 </button>
