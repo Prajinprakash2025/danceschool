@@ -9,6 +9,15 @@ export interface Admin {
   created_at?: string;
 }
 
+export interface Batch {
+  id: string;
+  name: string;
+  timing?: string;
+  instructor?: string;
+  monthly_fee?: number;
+  created_at?: string;
+}
+
 export interface Student {
   id: string;
   student_id: string; // e.g. DS-2026-001
@@ -16,7 +25,7 @@ export interface Student {
   parent_name: string;
   phone: string;
   email?: string;
-  batch: string; // e.g. "Bharatanatyam (Junior)", "Mohiniyattam", etc.
+  batch: string; // References Batch name
   password?: string; // plain text hint (admin view only)
   password_hash?: string;
   role: 'STUDENT';
@@ -26,7 +35,9 @@ export interface Student {
 
 export interface Fund {
   id: string;
-  title: string; // e.g. "Annual Dance Fest 2026", "Costume & Jewellery Fund"
+  title: string;
+  fee_type?: 'MONTHLY' | 'EVENT' | 'SPECIAL';
+  month_name?: string; // e.g. "November 2026"
   description?: string;
   amount: number; // in INR
   due_date: string;
@@ -47,16 +58,21 @@ export interface StudentFee {
   created_at?: string;
   // joined fields
   fund_title?: string;
+  fee_type?: 'MONTHLY' | 'EVENT' | 'SPECIAL';
+  month_name?: string;
   fund_description?: string;
   due_date?: string;
   student_name?: string;
   student_code?: string;
   batch?: string;
+  parent_name?: string;
+  phone?: string;
 }
 
 export interface DashboardStats {
   totalStudents: number;
   totalCollected: number;
   totalPending: number;
+  activeBatches: number;
   recentTransactions: StudentFee[];
 }

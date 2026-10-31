@@ -1,6 +1,5 @@
 -- ===================================================
 -- Dance School Management & Fund Collection Schema
--- Run this script in the Supabase SQL Editor
 -- ===================================================
 
 -- 1. Create Admins Table
@@ -13,7 +12,17 @@ CREATE TABLE IF NOT EXISTS admins (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Create Students Table
+-- 2. Create Batches Table (Managed by Admin)
+CREATE TABLE IF NOT EXISTS batches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    timing TEXT,
+    instructor TEXT,
+    monthly_fee NUMERIC DEFAULT 1000,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Create Students Table
 CREATE TABLE IF NOT EXISTS students (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id TEXT UNIQUE NOT NULL,
@@ -23,15 +32,17 @@ CREATE TABLE IF NOT EXISTS students (
     email TEXT,
     batch TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    password_hint TEXT, -- Admin viewable password hint
+    password_hint TEXT,
     status TEXT DEFAULT 'ACTIVE',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Create Funds / Fee Categories Table
+-- 4. Create Funds / Fee Categories Table
 CREATE TABLE IF NOT EXISTS funds (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
+    fee_type TEXT DEFAULT 'MONTHLY', -- 'MONTHLY', 'EVENT', 'SPECIAL'
+    month_name TEXT, -- e.g. 'November 2026'
     description TEXT,
     amount NUMERIC NOT NULL,
     due_date DATE NOT NULL,
@@ -39,13 +50,13 @@ CREATE TABLE IF NOT EXISTS funds (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Create Student Fees / Collections Table
+-- 5. Create Student Fees Table
 CREATE TABLE IF NOT EXISTS student_fees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     fund_id UUID REFERENCES funds(id) ON DELETE CASCADE,
     amount NUMERIC NOT NULL,
-    status TEXT DEFAULT 'PENDING', -- 'PENDING' or 'PAID'
+    status TEXT DEFAULT 'PENDING',
     paid_amount NUMERIC DEFAULT 0,
     paid_at TIMESTAMPTZ,
     razorpay_order_id TEXT,
@@ -53,18 +64,20 @@ CREATE TABLE IF NOT EXISTS student_fees (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexing for speed
-CREATE INDEX IF NOT EXISTS idx_students_student_id ON students(student_id);
-CREATE INDEX IF NOT EXISTS idx_student_fees_student_id ON student_fees(student_id);
-CREATE INDEX IF NOT EXISTS idx_student_fees_fund_id ON student_fees(fund_id);
-CREATE INDEX IF NOT EXISTS idx_student_fees_status ON student_fees(status);
+-- Default Batches
+INSERT INTO batches (name, timing, instructor, monthly_fee)
+VALUES 
+  ('Bharatanatyam - Junior Batch', 'Tue, Thu, Sat (4:30 PM - 6:00 PM)', 'Guru Jayasree', 1000),
+  ('Bharatanatyam - Senior Batch', 'Mon, Wed, Fri (5:30 PM - 7:30 PM)', 'Guru Jayasree', 1200),
+  ('Kuchipudi - Beginners', 'Sat & Sun (9:30 AM - 11:30 AM)', 'Smt. Kavitha', 1000),
+  ('Mohiniyattam - Classical', 'Wed & Sat (3:30 PM - 5:00 PM)', 'Dr. Neethu Nair', 1100)
+ON CONFLICT DO NOTHING;
 
--- 5. Insert Default Admin Account
--- Default password: admin123 (bcrypt hash)
+-- Default Admin Account (admin / admin123)
 INSERT INTO admins (username, name, email, password_hash)
 VALUES (
     'admin',
     'Dance Academy Admin',
     'admin@danceschool.com',
-    '$2a$10$w09V61PqWw7i5g3M.B6mU.0hB8Bsqf1E1a5YyqOaP8x8H7E3I7kvy'
+    '$2b$10$WEq4w51ibyDEbh5XVZMe5eSaxCaBBrUQEDdKGLJuZZADZslqHyXAm'
 ) ON CONFLICT (username) DO NOTHING;

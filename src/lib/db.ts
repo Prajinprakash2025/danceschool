@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { hashPassword } from './auth';
-import { Admin, Student, Fund, StudentFee, DashboardStats } from '@/types';
+import { Admin, Student, Fund, StudentFee, Batch, DashboardStats } from '@/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -19,12 +19,12 @@ if (isSupabaseConfigured) {
   supabase = createClient(supabaseUrl!, supabaseKey!);
 }
 
-// Fallback local file storage for seamless local development / demo
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'db.json');
 
 interface LocalDbSchema {
   admins: Admin[];
+  batches: Batch[];
   students: Student[];
   funds: Fund[];
   student_fees: StudentFee[];
@@ -42,6 +42,40 @@ function getInitialData(): LocalDbSchema {
         created_at: new Date().toISOString(),
       },
     ],
+    batches: [
+      {
+        id: 'batch-1',
+        name: 'Bharatanatyam - Junior Batch',
+        timing: 'Tue, Thu, Sat (4:30 PM - 6:00 PM)',
+        instructor: 'Guru Jayasree',
+        monthly_fee: 1000,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'batch-2',
+        name: 'Bharatanatyam - Senior Batch',
+        timing: 'Mon, Wed, Fri (5:30 PM - 7:30 PM)',
+        instructor: 'Guru Jayasree',
+        monthly_fee: 1200,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'batch-3',
+        name: 'Kuchipudi - Beginners',
+        timing: 'Sat & Sun (9:30 AM - 11:30 AM)',
+        instructor: 'Smt. Kavitha',
+        monthly_fee: 1000,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'batch-4',
+        name: 'Mohiniyattam - Classical',
+        timing: 'Wed & Sat (3:30 PM - 5:00 PM)',
+        instructor: 'Dr. Neethu Nair',
+        monthly_fee: 1100,
+        created_at: new Date().toISOString(),
+      },
+    ],
     students: [
       {
         id: 'std-1',
@@ -50,7 +84,7 @@ function getInitialData(): LocalDbSchema {
         parent_name: 'Radhika Menon',
         phone: '9847123456',
         email: 'radhika@example.com',
-        batch: 'Bharatanatyam - Senior',
+        batch: 'Bharatanatyam - Senior Batch',
         password: 'dance@2026',
         password_hash: hashPassword('dance@2026'),
         role: 'STUDENT',
@@ -64,21 +98,7 @@ function getInitialData(): LocalDbSchema {
         parent_name: 'Suresh Kumar',
         phone: '9847234567',
         email: 'suresh@example.com',
-        batch: 'Kuchipudi - Junior',
-        password: 'dance@2026',
-        password_hash: hashPassword('dance@2026'),
-        role: 'STUDENT',
-        status: 'ACTIVE',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'std-3',
-        student_id: 'DS-2026-003',
-        name: 'Devika Nair',
-        parent_name: 'Pramod Nair',
-        phone: '9847345678',
-        email: 'pramod@example.com',
-        batch: 'Mohiniyattam - Beginners',
+        batch: 'Kuchipudi - Beginners',
         password: 'dance@2026',
         password_hash: hashPassword('dance@2026'),
         role: 'STUDENT',
@@ -89,19 +109,22 @@ function getInitialData(): LocalDbSchema {
     funds: [
       {
         id: 'fund-1',
-        title: 'Annual Day Stage & Costume Fund',
-        description: 'Fund for stage setup, audio system, and traditional dance costumes for the annual festival.',
-        amount: 1500,
-        due_date: '2026-11-25',
+        title: 'Monthly Dance Fee - November 2026',
+        fee_type: 'MONTHLY',
+        month_name: 'November 2026',
+        description: 'Regular monthly dance training & choreography fee for November.',
+        amount: 1000,
+        due_date: '2026-11-10',
         batch: 'ALL',
         created_at: new Date().toISOString(),
       },
       {
         id: 'fund-2',
-        title: 'Monthly Tuition Fee - November 2026',
-        description: 'Regular monthly dance training & choreography fee.',
-        amount: 800,
-        due_date: '2026-11-10',
+        title: 'Annual Day Stage & Costume Fund',
+        fee_type: 'EVENT',
+        description: 'Traditional dance costumes, stage lighting, and audio orchestra setup.',
+        amount: 1500,
+        due_date: '2026-11-25',
         batch: 'ALL',
         created_at: new Date().toISOString(),
       },
@@ -111,19 +134,19 @@ function getInitialData(): LocalDbSchema {
         id: 'fee-1',
         student_id: 'std-1',
         fund_id: 'fund-1',
-        amount: 1500,
+        amount: 1000,
         status: 'PAID',
-        paid_amount: 1500,
+        paid_amount: 1000,
         paid_at: new Date().toISOString(),
         razorpay_order_id: 'order_mock_001',
-        razorpay_payment_id: 'pay_mock_001',
+        razorpay_payment_id: 'pay_mock_upi_001',
         created_at: new Date().toISOString(),
       },
       {
         id: 'fee-2',
         student_id: 'std-1',
         fund_id: 'fund-2',
-        amount: 800,
+        amount: 1500,
         status: 'PENDING',
         paid_amount: 0,
         created_at: new Date().toISOString(),
@@ -132,16 +155,7 @@ function getInitialData(): LocalDbSchema {
         id: 'fee-3',
         student_id: 'std-2',
         fund_id: 'fund-1',
-        amount: 1500,
-        status: 'PENDING',
-        paid_amount: 0,
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'fee-4',
-        student_id: 'std-3',
-        fund_id: 'fund-1',
-        amount: 1500,
+        amount: 1000,
         status: 'PENDING',
         paid_amount: 0,
         created_at: new Date().toISOString(),
@@ -161,7 +175,12 @@ function readLocalDb(): LocalDbSchema {
       return initial;
     }
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!parsed.batches) {
+      parsed.batches = getInitialData().batches;
+      fs.writeFileSync(DATA_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
+    }
+    return parsed;
   } catch (err) {
     console.error('Error reading local db:', err);
     return getInitialData();
@@ -179,7 +198,7 @@ function writeLocalDb(data: LocalDbSchema) {
   }
 }
 
-// ----------------- DB OPERATIONS -----------------
+// ----------------- ADMIN -----------------
 
 export async function getAdminByUsername(username: string): Promise<(Admin & { password_hash?: string }) | null> {
   if (isSupabaseConfigured && supabase) {
@@ -195,12 +214,78 @@ export async function getAdminByUsername(username: string): Promise<(Admin & { p
   const db = readLocalDb();
   const admin = db.admins.find((a) => a.username.toLowerCase() === username.toLowerCase());
   if (!admin) return null;
-  // default admin password hash for 'admin123'
   return {
     ...admin,
     password_hash: hashPassword('admin123'),
   };
 }
+
+// ----------------- BATCHES -----------------
+
+export async function getAllBatches(): Promise<Batch[]> {
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('batches')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (!error && data && data.length > 0) return data;
+  }
+
+  const db = readLocalDb();
+  return db.batches || [];
+}
+
+export async function createBatch(payload: {
+  name: string;
+  timing?: string;
+  instructor?: string;
+  monthly_fee?: number;
+}): Promise<Batch> {
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase
+      .from('batches')
+      .insert({
+        name: payload.name,
+        timing: payload.timing || '',
+        instructor: payload.instructor || '',
+        monthly_fee: Number(payload.monthly_fee || 1000),
+      })
+      .select()
+      .single();
+    if (!error && data) return data;
+  }
+
+  const db = readLocalDb();
+  const newBatch: Batch = {
+    id: 'batch-' + Date.now(),
+    name: payload.name,
+    timing: payload.timing || '',
+    instructor: payload.instructor || '',
+    monthly_fee: Number(payload.monthly_fee || 1000),
+    created_at: new Date().toISOString(),
+  };
+
+  if (!db.batches) db.batches = [];
+  db.batches.push(newBatch);
+  writeLocalDb(db);
+  return newBatch;
+}
+
+export async function deleteBatch(id: string): Promise<boolean> {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.from('batches').delete().eq('id', id);
+    if (!error) return true;
+  }
+
+  const db = readLocalDb();
+  if (db.batches) {
+    db.batches = db.batches.filter((b) => b.id !== id);
+    writeLocalDb(db);
+  }
+  return true;
+}
+
+// ----------------- STUDENTS -----------------
 
 export async function getStudentByStudentId(studentId: string): Promise<Student | null> {
   const cleanId = studentId.trim().toUpperCase();
@@ -322,7 +407,6 @@ export async function createStudent(payload: {
 
   db.students.unshift(newStudent);
 
-  // Automatically assign all existing funds to this new student
   db.funds.forEach((fund) => {
     if (fund.batch === 'ALL' || fund.batch === newStudent.batch) {
       db.student_fees.push({
@@ -354,6 +438,8 @@ export async function deleteStudent(id: string): Promise<boolean> {
   return true;
 }
 
+// ----------------- FUNDS & FEES -----------------
+
 export async function getAllFunds(): Promise<Fund[]> {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
@@ -370,6 +456,8 @@ export async function getAllFunds(): Promise<Fund[]> {
 
 export async function createFund(payload: {
   title: string;
+  fee_type?: 'MONTHLY' | 'EVENT' | 'SPECIAL';
+  month_name?: string;
   description?: string;
   amount: number;
   due_date: string;
@@ -380,6 +468,8 @@ export async function createFund(payload: {
       .from('funds')
       .insert({
         title: payload.title,
+        fee_type: payload.fee_type || 'MONTHLY',
+        month_name: payload.month_name || '',
         description: payload.description || '',
         amount: payload.amount,
         due_date: payload.due_date,
@@ -390,7 +480,6 @@ export async function createFund(payload: {
 
     if (error) throw new Error(error.message);
 
-    // Assign to students
     const students = await getAllStudents();
     const eligibleStudents = students.filter(
       (s) => payload.batch === 'ALL' || s.batch === payload.batch
@@ -413,6 +502,8 @@ export async function createFund(payload: {
   const newFund: Fund = {
     id: 'fund-' + Date.now(),
     title: payload.title,
+    fee_type: payload.fee_type || 'MONTHLY',
+    month_name: payload.month_name || '',
     description: payload.description || '',
     amount: Number(payload.amount),
     due_date: payload.due_date,
@@ -422,7 +513,6 @@ export async function createFund(payload: {
 
   db.funds.unshift(newFund);
 
-  // Assign fee to eligible students
   db.students.forEach((student) => {
     if (newFund.batch === 'ALL' || student.batch === newFund.batch) {
       db.student_fees.push({
@@ -465,11 +555,15 @@ export async function getStudentFees(studentIdOrUuid: string): Promise<StudentFe
       return {
         ...fee,
         fund_title: fund?.title || 'Dance Academy Fee',
+        fee_type: fund?.fee_type || 'MONTHLY',
+        month_name: fund?.month_name || '',
         fund_description: fund?.description || '',
         due_date: fund?.due_date || '',
         student_name: currentStudent.name,
         student_code: currentStudent.student_id,
         batch: currentStudent.batch,
+        parent_name: currentStudent.parent_name,
+        phone: currentStudent.phone,
       };
     });
   }
@@ -482,11 +576,15 @@ export async function getStudentFees(studentIdOrUuid: string): Promise<StudentFe
       return {
         ...fee,
         fund_title: fund?.title || 'Dance Academy Fee',
+        fee_type: fund?.fee_type || 'MONTHLY',
+        month_name: fund?.month_name || '',
         fund_description: fund?.description || '',
         due_date: fund?.due_date || '',
         student_name: currentStudent.name,
         student_code: currentStudent.student_id,
         batch: currentStudent.batch,
+        parent_name: currentStudent.parent_name,
+        phone: currentStudent.phone,
       };
     });
 
@@ -512,10 +610,14 @@ export async function getAllStudentFees(): Promise<StudentFee[]> {
       return {
         ...fee,
         fund_title: fund?.title || 'Fee',
+        fee_type: fund?.fee_type || 'MONTHLY',
+        month_name: fund?.month_name || '',
         due_date: fund?.due_date || '',
         student_name: student?.name || 'Unknown',
         student_code: student?.student_id || '',
         batch: student?.batch || '',
+        parent_name: student?.parent_name || '',
+        phone: student?.phone || '',
       };
     });
   }
@@ -527,10 +629,14 @@ export async function getAllStudentFees(): Promise<StudentFee[]> {
     return {
       ...fee,
       fund_title: fund?.title || 'Fee',
+      fee_type: fund?.fee_type || 'MONTHLY',
+      month_name: fund?.month_name || '',
       due_date: fund?.due_date || '',
       student_name: student?.name || 'Unknown',
       student_code: student?.student_id || '',
       batch: student?.batch || '',
+      parent_name: student?.parent_name || '',
+      phone: student?.phone || '',
     };
   });
 }
@@ -547,7 +653,7 @@ export async function markFeeAsPaid(
       .from('student_fees')
       .update({
         status: 'PAID',
-        paid_amount: supabase.rpc('get_fee_amount', { fee_id: feeId }), // or update directly
+        paid_amount: supabase.rpc('get_fee_amount', { fee_id: feeId }),
         paid_at: now,
         razorpay_order_id: razorpayOrderId,
         razorpay_payment_id: razorpayPaymentId,
@@ -577,6 +683,7 @@ export async function markFeeAsPaid(
 export async function getDashboardStats(): Promise<DashboardStats> {
   const students = await getAllStudents();
   const allFees = await getAllStudentFees();
+  const batches = await getAllBatches();
 
   let totalCollected = 0;
   let totalPending = 0;
@@ -597,6 +704,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalStudents: students.length,
     totalCollected,
     totalPending,
+    activeBatches: batches.length,
     recentTransactions,
   };
 }
