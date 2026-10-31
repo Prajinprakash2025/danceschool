@@ -19,6 +19,7 @@ import {
   X,
   Phone,
   Layers,
+  Tag,
 } from 'lucide-react';
 import { Student, StudentFee } from '@/types';
 import { loadRazorpayScript } from '@/lib/loadRazorpay';
@@ -293,8 +294,24 @@ export default function StudentDashboard() {
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 uppercase">
                         Pending Due
                       </span>
-                      <div className="text-xl font-black text-white">
-                        ₹{Number(fee.amount).toLocaleString('en-IN')}
+                      <div className="text-right">
+                        {fee.discount_applied && Number(fee.discount_applied) > 0 ? (
+                          <div>
+                            <span className="text-xs text-stone-500 line-through mr-1.5 font-semibold">
+                              ₹{Number(fee.original_amount || (Number(fee.amount) + Number(fee.discount_applied))).toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-xl font-black text-emerald-400">
+                              ₹{Number(fee.amount).toLocaleString('en-IN')}
+                            </span>
+                            <div className="text-[10px] font-bold text-amber-400 flex items-center justify-end gap-1 mt-0.5">
+                              <Tag className="w-3 h-3" /> ₹{Number(fee.discount_applied)} Concession Applied
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-xl font-black text-white">
+                            ₹{Number(fee.amount).toLocaleString('en-IN')}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -306,9 +323,16 @@ export default function StudentDashboard() {
                       <p className="text-xs text-stone-400 line-clamp-2">{fee.fund_description}</p>
                     )}
 
-                    <div className="flex items-center gap-1.5 text-xs text-stone-400 pt-1">
-                      <Calendar className="w-3.5 h-3.5 text-orange-400" />
-                      <span>Due: <strong className="text-stone-300">{new Date(fee.due_date || '').toLocaleDateString('en-IN')}</strong></span>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-stone-400 pt-1">
+                      {fee.period_start && fee.period_end && (
+                        <div className="flex items-center gap-1 text-[11px] text-amber-400/90 font-medium bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
+                          <span>Period: {new Date(fee.period_start).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} – {new Date(fee.period_end).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-orange-400" />
+                        <span>Due: <strong className="text-stone-300">{new Date(fee.due_date || '').toLocaleDateString('en-IN')}</strong></span>
+                      </div>
                     </div>
                   </div>
 
@@ -478,10 +502,24 @@ export default function StudentDashboard() {
               <div className="border border-stone-800 bg-stone-950 rounded-xl p-3.5 space-y-2">
                 <div className="flex justify-between items-center text-[11px] text-stone-400 border-b border-stone-800 pb-1.5">
                   <span>Particulars</span>
-                  <span>Amount Paid</span>
+                  <span>Amount</span>
                 </div>
                 <div className="flex justify-between items-center font-bold text-white pt-1">
                   <span>{selectedReceiptFee.fund_title}</span>
+                  {selectedReceiptFee.discount_applied && Number(selectedReceiptFee.discount_applied) > 0 ? (
+                    <span className="text-xs text-stone-400 line-through">
+                      ₹{Number(selectedReceiptFee.original_amount || (Number(selectedReceiptFee.amount) + Number(selectedReceiptFee.discount_applied))).toLocaleString('en-IN')}
+                    </span>
+                  ) : null}
+                </div>
+                {selectedReceiptFee.discount_applied && Number(selectedReceiptFee.discount_applied) > 0 && (
+                  <div className="flex justify-between items-center text-xs text-amber-400">
+                    <span>Discount / Sibling Concession</span>
+                    <span>-₹{Number(selectedReceiptFee.discount_applied).toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center font-black text-white pt-1 border-t border-stone-800/80">
+                  <span className="text-xs">Net Amount Paid</span>
                   <span className="text-emerald-400 text-base">
                     ₹{Number(selectedReceiptFee.paid_amount || selectedReceiptFee.amount).toLocaleString('en-IN')}
                   </span>

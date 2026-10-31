@@ -30,6 +30,9 @@ import {
   SlidersHorizontal,
   Printer,
   Phone,
+  Tag,
+  Edit2,
+  Gift,
 } from 'lucide-react';
 import { Student, Fund, StudentFee, Batch, DashboardStats } from '@/types';
 
@@ -52,6 +55,7 @@ export default function AdminDashboard() {
   const [showAddBatch, setShowAddBatch] = useState(false);
   const [showAddFund, setShowAddFund] = useState(false);
   const [selectedPaymentDetail, setSelectedPaymentDetail] = useState<StudentFee | null>(null);
+  const [editingFee, setEditingFee] = useState<{ id: string; amount: string; studentName: string } | null>(null);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
   // New Student Form
@@ -61,6 +65,7 @@ export default function AdminDashboard() {
     phone: '',
     email: '',
     batch: '',
+    discount_amount: '0',
     password: '',
   });
   const [savingStudent, setSavingStudent] = useState(false);
@@ -74,38 +79,52 @@ export default function AdminDashboard() {
   });
   const [savingBatch, setSavingBatch] = useState(false);
 
-  // New Fund / Fee Form
-  const [feeCategoryType, setFeeCategoryType] = useState<'MONTHLY' | 'EVENT'>('MONTHLY');
-  const [selectedMonth, setSelectedMonth] = useState('November 2026');
+  // New Fund / Period Fee Form (Jan 1 to Mar 31, Apr 1 to Dec, etc.)
+  const [feeCategoryType, setFeeCategoryType] = useState<'PERIOD' | 'EVENT'>('PERIOD');
   const [fundForm, setFundForm] = useState({
-    title: 'Monthly Dance Fee - November 2026',
-    description: 'Regular monthly dance training & choreography fee for November.',
-    amount: '1000',
-    due_date: '2026-11-01',
+    title: 'Dance Term 1 Fee (Jan 1 - Mar 31)',
+    period_start: '2027-01-01',
+    period_end: '2027-03-31',
+    description: 'First quarter comprehensive dance training fee.',
+    amount: '2000',
+    due_date: '2027-01-10',
     batch: 'ALL',
   });
   const [savingFund, setSavingFund] = useState(false);
 
-  // Month to default 1st day map
-  const monthDateMap: Record<string, string> = {
-    'November 2026': '2026-11-01',
-    'December 2026': '2026-12-01',
-    'January 2027': '2027-01-01',
-    'February 2027': '2027-02-01',
-    'March 2027': '2027-03-01',
-    'April 2027': '2027-04-01',
-    'May 2027': '2027-05-01',
-  };
-
-  const handleMonthChange = (month: string) => {
-    setSelectedMonth(month);
-    const dueDate = monthDateMap[month] || '2026-11-01';
-    setFundForm((prev) => ({
-      ...prev,
-      title: `Monthly Dance Fee - ${month}`,
-      description: `Regular monthly dance training & choreography fee for ${month}.`,
-      due_date: dueDate,
-    }));
+  // Quick preset helper
+  const applyFeePreset = (type: 'JAN_MAR' | 'APR_DEC' | 'MONTHLY_NOV') => {
+    if (type === 'JAN_MAR') {
+      setFundForm({
+        title: 'Dance Term 1 Fee (Jan 1 - Mar 31)',
+        period_start: '2027-01-01',
+        period_end: '2027-03-31',
+        description: 'First quarter comprehensive dance training fee (Jan 1 to Mar 31).',
+        amount: '2000',
+        due_date: '2027-01-05',
+        batch: 'ALL',
+      });
+    } else if (type === 'APR_DEC') {
+      setFundForm({
+        title: 'Dance Session 2 Fee (Apr 1 - Dec 31)',
+        period_start: '2027-04-01',
+        period_end: '2027-12-31',
+        description: 'Second session dance classes and festive choreography (Apr 1 to Dec 31).',
+        amount: '2500',
+        due_date: '2027-04-05',
+        batch: 'ALL',
+      });
+    } else {
+      setFundForm({
+        title: 'Monthly Dance Tuition - Nov 2026',
+        period_start: '2026-11-01',
+        period_end: '2026-11-30',
+        description: 'Regular monthly fee for November.',
+        amount: '1000',
+        due_date: '2026-11-05',
+        batch: 'ALL',
+      });
+    }
   };
 
   // Search & Filter
@@ -115,8 +134,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    const defaultDue = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    setFundForm((prev) => ({ ...prev, due_date: defaultDue }));
   }, []);
 
   const fetchDashboardData = async () => {
@@ -130,7 +147,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Fetch stats
       const statsRes = await fetch('/api/admin/stats');
       const statsData = await statsRes.json();
       if (statsRes.ok) {
@@ -138,14 +154,12 @@ export default function AdminDashboard() {
         setAllFees(statsData.allFees || []);
       }
 
-      // Fetch students
       const stdRes = await fetch('/api/admin/students');
       const stdData = await stdRes.json();
       if (stdRes.ok) {
         setStudents(stdData.students || []);
       }
 
-      // Fetch batches
       const batchRes = await fetch('/api/admin/batches');
       const batchData = await batchRes.json();
       if (batchRes.ok) {
@@ -156,7 +170,6 @@ export default function AdminDashboard() {
         }
       }
 
-      // Fetch funds
       const fundRes = await fetch('/api/admin/funds');
       const fundData = await fundRes.json();
       if (fundRes.ok) {
@@ -198,6 +211,7 @@ export default function AdminDashboard() {
         phone: '',
         email: '',
         batch: batches[0]?.name || '',
+        discount_amount: '0',
         password: '',
       });
       await fetchDashboardData();
@@ -283,7 +297,6 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           ...fundForm,
           fee_type: feeCategoryType,
-          month_name: feeCategoryType === 'MONTHLY' ? selectedMonth : undefined,
         }),
       });
 
@@ -295,11 +308,31 @@ export default function AdminDashboard() {
 
       setShowAddFund(false);
       await fetchDashboardData();
-      alert('Fee category created and allocated to eligible students!');
+      alert('Fee Demand created! Students with enrolled discounts received their automatic deduction.');
     } catch (err: any) {
       alert(err.message || 'Error creating fee');
     } finally {
       setSavingFund(false);
+    }
+  };
+
+  const handleUpdateFeeAmount = async () => {
+    if (!editingFee) return;
+    try {
+      const res = await fetch(`/api/admin/fees/${editingFee.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: editingFee.amount }),
+      });
+      if (res.ok) {
+        setEditingFee(null);
+        await fetchDashboardData();
+        alert('Fee amount updated successfully!');
+      } else {
+        alert('Could not update fee amount');
+      }
+    } catch {
+      alert('Error updating fee');
     }
   };
 
@@ -327,7 +360,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-900 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-stone-950 flex items-center justify-center text-white">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500 mb-2" />
       </div>
     );
@@ -343,7 +376,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <h1 className="font-bold text-sm text-white leading-tight">Natyanjali Admin</h1>
-            <p className="text-[10px] text-orange-400 font-medium">Academy Management</p>
+            <p className="text-[10px] text-orange-400 font-medium">Academy Console</p>
           </div>
         </div>
         <button
@@ -446,7 +479,7 @@ export default function AdminDashboard() {
             >
               <div className="flex items-center gap-3">
                 <CreditCard className="w-4 h-4" />
-                <span>Monthly Fees & Funds</span>
+                <span>Custom Fees & Funds</span>
               </div>
               <span className="text-xs bg-stone-800 px-2 py-0.5 rounded-full text-stone-300">
                 {funds.length}
@@ -494,31 +527,30 @@ export default function AdminDashboard() {
 
       {/* ---------------- MAIN DASHBOARD VIEWPORT ---------------- */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
-        {/* Top Action Header */}
+        {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-stone-800">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               {activeTab === 'overview' && 'Executive Overview'}
               {activeTab === 'students' && 'Students Management'}
               {activeTab === 'batches' && 'Classical Dance Batches'}
-              {activeTab === 'funds' && 'Monthly Fees & Fund Campaigns'}
-              {activeTab === 'payments' && 'Payment Records & Collections'}
+              {activeTab === 'funds' && 'Custom Fees & Seasonal Funds'}
+              {activeTab === 'payments' && 'Payment Records & Concessions'}
             </h1>
             <p className="text-xs sm:text-sm text-stone-400 mt-0.5">
-              {activeTab === 'overview' && 'Live tracking of dance school collections, active students, and batch dues'}
-              {activeTab === 'students' && 'Enroll new dance students with auto ID generation and parent credentials'}
+              {activeTab === 'overview' && 'Live tracking of collections, student counts, and active batch metrics'}
+              {activeTab === 'students' && 'Enroll students, assign sibling/scholarship discounts, and generate login IDs'}
               {activeTab === 'batches' && 'Create and manage classical dance classes, timings, and instructor assignments'}
-              {activeTab === 'funds' && 'Schedule regular monthly tuition fees or specific costume / festival funds'}
-              {activeTab === 'payments' && 'Complete breakdown of Razorpay transactions and paid student receipts'}
+              {activeTab === 'funds' && 'Create custom date range fees (e.g. Jan-Mar ₹2000, Apr-Dec ₹2500, or Monthly)'}
+              {activeTab === 'payments' && 'View transaction details, student discounts, and adjust individual fee amounts'}
             </p>
           </div>
 
-          {/* Quick Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
             {activeTab === 'students' && (
               <button
                 onClick={() => setShowAddStudent(true)}
-                className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm shadow-md transition flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm shadow-md transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Enroll Student
               </button>
@@ -526,15 +558,15 @@ export default function AdminDashboard() {
             {activeTab === 'batches' && (
               <button
                 onClick={() => setShowAddBatch(true)}
-                className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm shadow-md transition flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm shadow-md transition flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Add New Dance Batch
+                <Plus className="w-4 h-4" /> Add Dance Batch
               </button>
             )}
             {(activeTab === 'funds' || activeTab === 'overview') && (
               <button
                 onClick={() => setShowAddFund(true)}
-                className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm shadow-md transition flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs sm:text-sm shadow-md transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Create Fee Demand
               </button>
@@ -545,7 +577,6 @@ export default function AdminDashboard() {
         {/* ---------------- 1. EXECUTIVE OVERVIEW TAB ---------------- */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* KPI Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-stone-900 border border-stone-800/80 p-5 rounded-2xl flex items-center justify-between">
                 <div>
@@ -600,7 +631,7 @@ export default function AdminDashboard() {
                   <h3 className="text-2xl sm:text-3xl font-extrabold text-amber-400 mt-1">
                     {batches.length}
                   </h3>
-                  <p className="text-[11px] text-stone-500 mt-1">Managed dance classes</p>
+                  <p className="text-[11px] text-stone-500 mt-1">Active class batches</p>
                 </div>
                 <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
                   <Layers className="w-5 h-5" />
@@ -608,92 +639,54 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Quick Actions & Recent Transactions Split */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Recent Payments Section */}
-              <div className="lg:col-span-2 bg-stone-900 rounded-2xl border border-stone-800/80 p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-orange-500" /> Recent Payment Activity
-                  </h3>
-                  <button
-                    onClick={() => setActiveTab('payments')}
-                    className="text-xs text-orange-400 hover:text-orange-300 font-semibold"
-                  >
-                    View All →
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {allFees.filter((f) => f.status === 'PAID').length === 0 ? (
-                    <div className="text-center py-8 text-stone-500 text-xs">
-                      No payments collected yet.
-                    </div>
-                  ) : (
-                    allFees
-                      .filter((f) => f.status === 'PAID')
-                      .slice(0, 5)
-                      .map((fee) => (
-                        <div
-                          key={fee.id}
-                          className="bg-stone-950 p-4 rounded-xl border border-stone-800 flex items-center justify-between gap-3"
-                        >
-                          <div>
-                            <h4 className="font-semibold text-sm text-white">{fee.student_name}</h4>
-                            <p className="text-xs text-stone-400">
-                              {fee.fund_title} • <span className="text-stone-500">{fee.batch}</span>
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-bold text-emerald-400 text-sm">
-                              +₹{Number(fee.paid_amount || fee.amount).toLocaleString('en-IN')}
-                            </span>
-                            <button
-                              onClick={() => setSelectedPaymentDetail(fee)}
-                              className="block text-[11px] text-orange-400 hover:underline mt-0.5"
-                            >
-                              Details
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                  )}
-                </div>
+            {/* Recent Payments Section */}
+            <div className="bg-stone-900 rounded-2xl border border-stone-800/80 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base text-white flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-orange-500" /> Recent Payment Activity
+                </h3>
+                <button
+                  onClick={() => setActiveTab('payments')}
+                  className="text-xs text-orange-400 hover:text-orange-300 font-semibold"
+                >
+                  View All →
+                </button>
               </div>
 
-              {/* Batches Overview Card */}
-              <div className="bg-stone-900 rounded-2xl border border-stone-800/80 p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-amber-500" /> Active Batches
-                  </h3>
-                  <button
-                    onClick={() => setActiveTab('batches')}
-                    className="text-xs text-orange-400 hover:text-orange-300 font-semibold"
-                  >
-                    Manage →
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {batches.map((batch) => {
-                    const count = students.filter((s) => s.batch === batch.name).length;
-                    return (
+              <div className="space-y-3">
+                {allFees.filter((f) => f.status === 'PAID').length === 0 ? (
+                  <div className="text-center py-8 text-stone-500 text-xs">
+                    No payments recorded yet.
+                  </div>
+                ) : (
+                  allFees
+                    .filter((f) => f.status === 'PAID')
+                    .slice(0, 5)
+                    .map((fee) => (
                       <div
-                        key={batch.id}
-                        className="p-3.5 rounded-xl bg-stone-950 border border-stone-800 flex items-center justify-between"
+                        key={fee.id}
+                        className="bg-stone-950 p-4 rounded-xl border border-stone-800 flex items-center justify-between gap-3"
                       >
                         <div>
-                          <div className="font-semibold text-sm text-stone-200">{batch.name}</div>
-                          <div className="text-xs text-stone-500">{batch.timing || 'Custom Schedule'}</div>
+                          <h4 className="font-semibold text-sm text-white">{fee.student_name}</h4>
+                          <p className="text-xs text-stone-400">
+                            {fee.fund_title} • <span className="text-stone-500">{fee.batch}</span>
+                          </p>
                         </div>
-                        <span className="text-xs bg-stone-800 px-2.5 py-1 rounded-full text-stone-300 font-medium">
-                          {count} Students
-                        </span>
+                        <div className="text-right">
+                          <span className="font-bold text-emerald-400 text-sm">
+                            +₹{Number(fee.paid_amount || fee.amount).toLocaleString('en-IN')}
+                          </span>
+                          <button
+                            onClick={() => setSelectedPaymentDetail(fee)}
+                            className="block text-[11px] text-orange-400 hover:underline mt-0.5"
+                          >
+                            Details
+                          </button>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))
+                )}
               </div>
             </div>
           </div>
@@ -702,7 +695,6 @@ export default function AdminDashboard() {
         {/* ---------------- 2. STUDENTS MANAGEMENT TAB ---------------- */}
         {activeTab === 'students' && (
           <div className="space-y-4">
-            {/* Filter & Search Bar */}
             <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-stone-400" />
@@ -715,23 +707,20 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <select
-                  value={batchFilter}
-                  onChange={(e) => setBatchFilter(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs sm:text-sm text-stone-300 focus:outline-none"
-                >
-                  <option value="ALL">All Batches</option>
-                  {batches.map((b) => (
-                    <option key={b.id} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={batchFilter}
+                onChange={(e) => setBatchFilter(e.target.value)}
+                className="px-3 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs sm:text-sm text-stone-300 focus:outline-none"
+              >
+                <option value="ALL">All Batches</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Students Table / Cards (Mobile-first responsive) */}
             <div className="bg-stone-900 rounded-2xl border border-stone-800 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs sm:text-sm">
@@ -741,6 +730,7 @@ export default function AdminDashboard() {
                       <th className="py-3.5 px-4 font-semibold">Student Name</th>
                       <th className="py-3.5 px-4 font-semibold">Parent & Phone</th>
                       <th className="py-3.5 px-4 font-semibold">Batch</th>
+                      <th className="py-3.5 px-4 font-semibold">Concession / Discount</th>
                       <th className="py-3.5 px-4 font-semibold">Login Details</th>
                       <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
                     </tr>
@@ -748,7 +738,7 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-stone-800/60">
                     {filteredStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-stone-500">
+                        <td colSpan={7} className="py-12 text-center text-stone-500">
                           No students found. Click "+ Enroll Student" above.
                         </td>
                       </tr>
@@ -758,9 +748,7 @@ export default function AdminDashboard() {
                           <td className="py-3.5 px-4 font-mono font-bold text-orange-400">
                             {std.student_id}
                           </td>
-                          <td className="py-3.5 px-4">
-                            <span className="font-semibold text-white block">{std.name}</span>
-                          </td>
+                          <td className="py-3.5 px-4 font-semibold text-white">{std.name}</td>
                           <td className="py-3.5 px-4">
                             <div className="text-stone-300">{std.parent_name}</div>
                             <div className="text-[11px] text-stone-500 font-mono">{std.phone}</div>
@@ -771,14 +759,23 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="py-3.5 px-4">
+                            {Number(std.discount_amount || 0) > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <Gift className="w-3 h-3" /> -₹{Number(std.discount_amount).toLocaleString('en-IN')} off
+                              </span>
+                            ) : (
+                              <span className="text-stone-500 text-xs">Standard (No Discount)</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs bg-stone-950 px-2.5 py-1 rounded border border-stone-800 text-stone-300">
+                              <span className="font-mono text-xs bg-stone-950 px-2 py-1 rounded border border-stone-800 text-stone-300">
                                 {std.password || 'dance@2026'}
                               </span>
                               <button
                                 onClick={() => copyCredentials(std)}
-                                title="Copy WhatsApp message to send parent"
-                                className="p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white transition"
+                                title="Copy WhatsApp Credentials"
+                                className="p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white"
                               >
                                 {copySuccess === std.id ? (
                                   <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -791,7 +788,7 @@ export default function AdminDashboard() {
                           <td className="py-3.5 px-4 text-right">
                             <button
                               onClick={() => handleDeleteStudent(std.id, std.name)}
-                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40 transition"
+                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-200 hover:bg-rose-950/40"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -808,63 +805,61 @@ export default function AdminDashboard() {
 
         {/* ---------------- 3. CLASSICAL DANCE BATCHES TAB ---------------- */}
         {activeTab === 'batches' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {batches.map((batch) => {
-                const enrolledCount = students.filter((s) => s.batch === batch.name).length;
-                return (
-                  <div
-                    key={batch.id}
-                    className="bg-stone-900 rounded-2xl border border-stone-800 p-5 sm:p-6 flex flex-col justify-between space-y-4"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                          {enrolledCount} Enrolled
-                        </span>
-                        <button
-                          onClick={() => handleDeleteBatch(batch.id, batch.name)}
-                          className="text-stone-500 hover:text-rose-400 p-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <h3 className="font-bold text-lg text-white mt-2">{batch.name}</h3>
-                      <p className="text-xs text-stone-400 mt-1">
-                        Instructor: <strong className="text-stone-200">{batch.instructor || 'Academy Guru'}</strong>
-                      </p>
-
-                      <div className="mt-4 p-3 rounded-xl bg-stone-950 border border-stone-800/80 space-y-1">
-                        <div className="text-xs text-stone-500">Schedule & Timings:</div>
-                        <div className="text-xs font-semibold text-stone-300">
-                          {batch.timing || 'Flexible Batch Timings'}
-                        </div>
-                      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {batches.map((batch) => {
+              const enrolledCount = students.filter((s) => s.batch === batch.name).length;
+              return (
+                <div
+                  key={batch.id}
+                  className="bg-stone-900 rounded-2xl border border-stone-800 p-5 sm:p-6 flex flex-col justify-between space-y-4"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                        {enrolledCount} Enrolled
+                      </span>
+                      <button
+                        onClick={() => handleDeleteBatch(batch.id, batch.name)}
+                        className="text-stone-500 hover:text-rose-400 p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
 
-                    <div className="pt-3 border-t border-stone-800 flex items-center justify-between">
-                      <span className="text-xs text-stone-400">Monthly Tuition:</span>
-                      <span className="font-extrabold text-base text-emerald-400">
-                        ₹{Number(batch.monthly_fee || 1000).toLocaleString('en-IN')}/mo
-                      </span>
+                    <h3 className="font-bold text-lg text-white mt-2">{batch.name}</h3>
+                    <p className="text-xs text-stone-400 mt-1">
+                      Instructor: <strong className="text-stone-200">{batch.instructor || 'Academy Guru'}</strong>
+                    </p>
+
+                    <div className="mt-4 p-3 rounded-xl bg-stone-950 border border-stone-800 space-y-1">
+                      <div className="text-xs text-stone-500">Schedule & Timings:</div>
+                      <div className="text-xs font-semibold text-stone-300">
+                        {batch.timing || 'Flexible Batch Timings'}
+                      </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="pt-3 border-t border-stone-800 flex items-center justify-between">
+                    <span className="text-xs text-stone-400">Standard Monthly Tuition:</span>
+                    <span className="font-extrabold text-base text-emerald-400">
+                      ₹{Number(batch.monthly_fee || 1000).toLocaleString('en-IN')}/mo
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* ---------------- 4. MONTHLY FEES & FUNDS TAB ---------------- */}
+        {/* ---------------- 4. CUSTOM FEES & FUNDS TAB ---------------- */}
         {activeTab === 'funds' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {funds.map((fund) => {
                 const fundFees = allFees.filter((f) => f.fund_id === fund.id);
                 const paidFees = fundFees.filter((f) => f.status === 'PAID');
-                const totalTarget = fundFees.length * fund.amount;
-                const totalCollected = paidFees.length * fund.amount;
+                const totalTarget = fundFees.reduce((acc, curr) => acc + Number(curr.amount), 0);
+                const totalCollected = paidFees.reduce((acc, curr) => acc + Number(curr.paid_amount || curr.amount), 0);
                 const percentage = totalTarget > 0 ? Math.round((totalCollected / totalTarget) * 100) : 0;
 
                 return (
@@ -875,7 +870,7 @@ export default function AdminDashboard() {
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase">
-                          {fund.fee_type === 'MONTHLY' ? 'Monthly Tuition' : 'Special Fund'}
+                          {fund.period_start ? 'Period / Term Fee' : 'Special Fund'}
                         </span>
                         <span className="font-extrabold text-lg text-white">
                           ₹{Number(fund.amount).toLocaleString('en-IN')}
@@ -883,13 +878,18 @@ export default function AdminDashboard() {
                       </div>
 
                       <h3 className="font-bold text-base text-white mt-2">{fund.title}</h3>
+                      {fund.period_start && fund.period_end && (
+                        <div className="text-xs text-amber-300 font-medium mt-1">
+                          Period: {new Date(fund.period_start).toLocaleDateString('en-IN')} to {new Date(fund.period_end).toLocaleDateString('en-IN')}
+                        </div>
+                      )}
                       {fund.description && (
                         <p className="text-xs text-stone-400 line-clamp-2 mt-1">{fund.description}</p>
                       )}
 
                       <div className="mt-3 flex items-center gap-1.5 text-xs text-stone-400">
                         <Calendar className="w-3.5 h-3.5 text-orange-400" />
-                        <span>Due: {new Date(fund.due_date).toLocaleDateString('en-IN')}</span>
+                        <span>Due Date: {new Date(fund.due_date).toLocaleDateString('en-IN')}</span>
                       </div>
                     </div>
 
@@ -963,16 +963,16 @@ export default function AdminDashboard() {
                       <th className="py-3.5 px-4 font-semibold">Student ID</th>
                       <th className="py-3.5 px-4 font-semibold">Student Name</th>
                       <th className="py-3.5 px-4 font-semibold">Fee Title</th>
-                      <th className="py-3.5 px-4 font-semibold">Amount</th>
+                      <th className="py-3.5 px-4 font-semibold">Amount to Pay</th>
                       <th className="py-3.5 px-4 font-semibold">Status</th>
-                      <th className="py-3.5 px-4 font-semibold text-right">View Details</th>
+                      <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-800/60">
                     {filteredFees.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-12 text-center text-stone-500">
-                          No transactions found for this status.
+                          No transactions found.
                         </td>
                       </tr>
                     ) : (
@@ -986,8 +986,15 @@ export default function AdminDashboard() {
                             <span className="block text-[11px] text-stone-500">{fee.batch}</span>
                           </td>
                           <td className="py-3.5 px-4 text-stone-300">{fee.fund_title}</td>
-                          <td className="py-3.5 px-4 font-bold text-white">
-                            ₹{Number(fee.amount).toLocaleString('en-IN')}
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-white">
+                              ₹{Number(fee.amount).toLocaleString('en-IN')}
+                            </div>
+                            {Number(fee.discount_applied || 0) > 0 && (
+                              <span className="text-[10px] text-emerald-400 block">
+                                (Discount: -₹{fee.discount_applied})
+                              </span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4">
                             {fee.status === 'PAID' ? (
@@ -1001,12 +1008,29 @@ export default function AdminDashboard() {
                             )}
                           </td>
                           <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => setSelectedPaymentDetail(fee)}
-                              className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-orange-600 text-stone-200 hover:text-white text-xs font-semibold transition inline-flex items-center gap-1.5"
-                            >
-                              <Eye className="w-3.5 h-3.5" /> View Details
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              {fee.status === 'PENDING' && (
+                                <button
+                                  onClick={() =>
+                                    setEditingFee({
+                                      id: fee.id,
+                                      amount: String(fee.amount),
+                                      studentName: fee.student_name || '',
+                                    })
+                                  }
+                                  title="Adjust or Discount Fee Amount"
+                                  className="p-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setSelectedPaymentDetail(fee)}
+                                className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-orange-600 text-stone-200 hover:text-white text-xs font-semibold transition inline-flex items-center gap-1.5"
+                              >
+                                <Eye className="w-3.5 h-3.5" /> View Details
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1019,10 +1043,10 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* ---------------- ENROLL STUDENT MODAL ---------------- */}
+      {/* ---------------- ENROLL STUDENT MODAL (With Concession / Discount) ---------------- */}
       {showAddStudent && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5">
             <div>
               <h3 className="text-xl font-bold text-white">Enroll New Dance Student</h3>
               <p className="text-xs text-stone-400 mt-1">
@@ -1092,13 +1116,31 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Special Sibling / Concession Discount Field */}
+              <div className="p-3.5 rounded-2xl bg-stone-950 border border-stone-800 space-y-1.5">
+                <label className="block text-xs font-bold text-emerald-400 uppercase flex items-center gap-1.5">
+                  <Gift className="w-3.5 h-3.5" /> Sibling / Concession Discount per Fee (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0 (Enter discount e.g. 500 if applicable)"
+                  value={studentForm.discount_amount}
+                  onChange={(e) => setStudentForm({ ...studentForm, discount_amount: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-900 border border-stone-700 text-white font-bold text-sm focus:border-emerald-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-stone-400">
+                  Example: If ₹500 is entered here, when a ₹2000 fee is created, this student only pays <strong>₹1500</strong>!
+                </p>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
                   Login Password (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="Auto-generated if left empty"
+                  placeholder="Auto-generated if left empty (e.g. dance@2026)"
                   value={studentForm.password}
                   onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white font-mono text-sm focus:border-orange-500 focus:outline-none"
@@ -1118,7 +1160,7 @@ export default function AdminDashboard() {
                   disabled={savingStudent}
                   className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
                 >
-                  {savingStudent ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm & Generate ID'}
+                  {savingStudent ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm & Enroll Student'}
                 </button>
               </div>
             </form>
@@ -1126,211 +1168,103 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ---------------- CREATE BATCH MODAL ---------------- */}
-      {showAddBatch && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5">
-            <div>
-              <h3 className="text-xl font-bold text-white">Create New Dance Batch</h3>
-              <p className="text-xs text-stone-400 mt-1">
-                Define the classical style, schedule, and instructor for this class.
-              </p>
-            </div>
-
-            <form onSubmit={handleCreateBatch} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                  Batch Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Bharatanatyam - Senior Batch A"
-                  value={batchForm.name}
-                  onChange={(e) => setBatchForm({ ...batchForm, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                  Timings / Schedule
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Tue, Thu, Sat (5:00 PM - 6:30 PM)"
-                  value={batchForm.timing}
-                  onChange={(e) => setBatchForm({ ...batchForm, timing: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                    Dance Instructor (Guru)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Guru Jayasree"
-                    value={batchForm.instructor}
-                    onChange={(e) => setBatchForm({ ...batchForm, instructor: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                    Monthly Tuition Fee (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min="100"
-                    placeholder="1000"
-                    value={batchForm.monthly_fee}
-                    onChange={(e) => setBatchForm({ ...batchForm, monthly_fee: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm font-bold focus:border-orange-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddBatch(false)}
-                  className="px-4 py-2.5 rounded-xl border border-stone-800 text-stone-400 hover:text-white text-sm font-semibold transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingBatch}
-                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
-                >
-                  {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Batch'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------- CREATE FEE / FUND DEMAND MODAL ---------------- */}
+      {/* ---------------- CREATE CUSTOM DATE-RANGE FEE DEMAND MODAL ---------------- */}
       {showAddFund && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 sm:p-8 shadow-2xl space-y-5">
             <div>
               <h3 className="text-xl font-bold text-white">Create Dance Fee Demand</h3>
               <p className="text-xs text-stone-400 mt-1">
-                Allocate regular monthly fees (due on 1st) or special festival funds to students.
+                Set custom date periods (e.g. Jan 1 - Mar 31 ₹2000, Apr 1 - Dec 31 ₹2500) or event funds.
               </p>
             </div>
 
-            {/* Explanatory Banner */}
-            <div className="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-xs text-orange-300 space-y-1">
-              <strong className="block text-white flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-orange-400" /> How Dance School Fees Work:
-              </strong>
-              <span>
-                Each month on the 1st (e.g., 01-11-2026), students receive their monthly tuition notice. 
-                Parents log into their portal and pay instantly via UPI (GPay/PhonePe) or Cards.
+            {/* Quick 1-Click Presets */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold uppercase text-stone-400 block">
+                ⚡ Quick 1-Click Fill:
               </span>
-            </div>
-
-            {/* Fee Type Selector Tabs */}
-            <div className="flex p-1 bg-stone-950 rounded-xl border border-stone-800">
-              <button
-                type="button"
-                onClick={() => {
-                  setFeeCategoryType('MONTHLY');
-                  handleMonthChange(selectedMonth);
-                }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                  feeCategoryType === 'MONTHLY'
-                    ? 'bg-orange-600 text-white shadow-xs'
-                    : 'text-stone-400 hover:text-white'
-                }`}
-              >
-                📅 Monthly Tuition Fee
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFeeCategoryType('EVENT');
-                  setFundForm((prev) => ({
-                    ...prev,
-                    title: 'Annual Day Stage & Costume Fund',
-                    description: 'Traditional dance costumes, stage lighting, and audio orchestra setup.',
-                    amount: '1500',
-                  }));
-                }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                  feeCategoryType === 'EVENT'
-                    ? 'bg-orange-600 text-white shadow-xs'
-                    : 'text-stone-400 hover:text-white'
-                }`}
-              >
-                🎭 Event / Costume Fund
-              </button>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => applyFeePreset('JAN_MAR')}
+                  className="p-2 rounded-xl bg-stone-950 border border-stone-800 hover:border-orange-500 text-stone-300 hover:text-white text-left transition"
+                >
+                  <strong className="block text-orange-400">Jan 1 - Mar 31</strong>
+                  <span>₹2,000 (Term 1)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyFeePreset('APR_DEC')}
+                  className="p-2 rounded-xl bg-stone-950 border border-stone-800 hover:border-orange-500 text-stone-300 hover:text-white text-left transition"
+                >
+                  <strong className="block text-orange-400">Apr 1 - Dec 31</strong>
+                  <span>₹2,500 (Session 2)</span>
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleCreateFund} className="space-y-4">
-              {feeCategoryType === 'MONTHLY' ? (
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Fee Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Dance Term 1 Fee (Jan 1 - Mar 31)"
+                  value={fundForm.title}
+                  onChange={(e) => setFundForm({ ...fundForm, title: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Start Date & End Date Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                    Select Fee Month *
-                  </label>
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => handleMonthChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
-                  >
-                    <option value="November 2026">November 2026 (Due: 01-11-2026)</option>
-                    <option value="December 2026">December 2026 (Due: 01-12-2026)</option>
-                    <option value="January 2027">January 2027 (Due: 01-01-2027)</option>
-                    <option value="February 2027">February 2027 (Due: 01-02-2027)</option>
-                    <option value="March 2027">March 2027 (Due: 01-03-2027)</option>
-                    <option value="April 2027">April 2027 (Due: 01-04-2027)</option>
-                    <option value="May 2027">May 2027 (Due: 01-05-2027)</option>
-                  </select>
-                  <p className="text-[11px] text-stone-500 mt-1">
-                    Due date is automatically set to the 1st of this month.
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                    Fund / Event Title *
+                    Period From (Start Date)
                   </label>
                   <input
-                    type="text"
-                    required
-                    placeholder="e.g. Arangettam Stage & Costume Fund"
-                    value={fundForm.title}
-                    onChange={(e) => setFundForm({ ...fundForm, title: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                    type="date"
+                    value={fundForm.period_start}
+                    onChange={(e) => setFundForm({ ...fundForm, period_start: e.target.value })}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
                   />
                 </div>
-              )}
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Period To (End Date)
+                  </label>
+                  <input
+                    type="date"
+                    value={fundForm.period_end}
+                    onChange={(e) => setFundForm({ ...fundForm, period_end: e.target.value })}
+                    style={{ colorScheme: 'dark' }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
-                    Amount per Student (₹) *
+                    Standard Fee Amount (₹) *
                   </label>
                   <input
                     type="number"
                     required
                     min="1"
-                    placeholder="1000"
+                    placeholder="2000"
                     value={fundForm.amount}
                     onChange={(e) => setFundForm({ ...fundForm, amount: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm font-bold focus:border-orange-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1 flex items-center justify-between">
-                    <span>Due Date *</span>
-                    <span className="text-[10px] text-orange-400 font-normal">Every 1st of Month</span>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Payment Due Date *
                   </label>
                   <input
                     type="date"
@@ -1361,15 +1295,9 @@ export default function AdminDashboard() {
                 </select>
               </div>
 
-              {/* Live Preview Summary Card */}
-              <div className="p-3 rounded-xl bg-stone-950 border border-stone-800 text-xs space-y-1">
-                <span className="text-stone-500 uppercase text-[10px] font-bold block">Summary Preview:</span>
-                <div className="font-semibold text-white">
-                  {fundForm.title} • <span className="text-emerald-400">₹{fundForm.amount || '0'}</span>
-                </div>
-                <div className="text-[11px] text-stone-400">
-                  Due: <strong className="text-orange-400">{fundForm.due_date || '01-11-2026'}</strong> • Batch: {fundForm.batch}
-                </div>
+              {/* Discount Notice */}
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
+                ✨ <strong>Automatic Discount Protection:</strong> Any student with an assigned discount (concession) will automatically have their discount deducted from this fee!
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">
@@ -1389,6 +1317,50 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- EDIT INDIVIDUAL STUDENT FEE MODAL ---------------- */}
+      {editingFee && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div>
+              <h3 className="font-bold text-base text-white">Adjust Fee Amount</h3>
+              <p className="text-xs text-stone-400 mt-1">
+                Modifying pending fee for: <strong className="text-white">{editingFee.studentName}</strong>
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                New Amount to Pay (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={editingFee.amount}
+                onChange={(e) => setEditingFee({ ...editingFee, amount: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-white font-bold text-base focus:border-orange-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditingFee(null)}
+                className="px-3 py-2 rounded-xl border border-stone-800 text-stone-400 hover:text-white text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdateFeeAmount}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              >
+                Save Adjustment
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1483,6 +1455,94 @@ export default function AdminDashboard() {
                 <Printer className="w-4 h-4" /> Print Transaction Receipt
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- CREATE BATCH MODAL ---------------- */}
+      {showAddBatch && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5">
+            <div>
+              <h3 className="text-xl font-bold text-white">Create New Dance Batch</h3>
+              <p className="text-xs text-stone-400 mt-1">
+                Define the classical style, schedule, and instructor for this class.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateBatch} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Batch Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Bharatanatyam - Senior Batch A"
+                  value={batchForm.name}
+                  onChange={(e) => setBatchForm({ ...batchForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                  Timings / Schedule
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Tue, Thu, Sat (5:00 PM - 6:30 PM)"
+                  value={batchForm.timing}
+                  onChange={(e) => setBatchForm({ ...batchForm, timing: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Dance Instructor (Guru)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Guru Jayasree"
+                    value={batchForm.instructor}
+                    onChange={(e) => setBatchForm({ ...batchForm, instructor: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 uppercase mb-1">
+                    Monthly Tuition Fee (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="100"
+                    placeholder="1000"
+                    value={batchForm.monthly_fee}
+                    onChange={(e) => setBatchForm({ ...batchForm, monthly_fee: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-white text-sm font-bold focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddBatch(false)}
+                  className="px-4 py-2.5 rounded-xl border border-stone-800 text-stone-400 hover:text-white text-sm font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBatch}
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition flex items-center gap-1.5"
+                >
+                  {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Batch'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

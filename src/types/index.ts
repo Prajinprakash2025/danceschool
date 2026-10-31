@@ -25,8 +25,9 @@ export interface Student {
   parent_name: string;
   phone: string;
   email?: string;
-  batch: string; // References Batch name
-  password?: string; // plain text hint (admin view only)
+  batch: string;
+  discount_amount?: number; // e.g. 500 (sibling / scholarship concession)
+  password?: string;
   password_hash?: string;
   role: 'STUDENT';
   status: 'ACTIVE' | 'INACTIVE';
@@ -36,8 +37,9 @@ export interface Student {
 export interface Fund {
   id: string;
   title: string;
-  fee_type?: 'MONTHLY' | 'EVENT' | 'SPECIAL';
-  month_name?: string; // e.g. "November 2026"
+  fee_type?: 'PERIOD' | 'MONTHLY' | 'EVENT';
+  period_start?: string; // e.g. '2027-01-01'
+  period_end?: string; // e.g. '2027-03-31'
   description?: string;
   amount: number; // in INR
   due_date: string;
@@ -50,6 +52,8 @@ export interface StudentFee {
   student_id: string;
   fund_id: string;
   amount: number;
+  original_amount?: number;
+  discount_applied?: number;
   status: 'PENDING' | 'PAID';
   paid_amount?: number;
   paid_at?: string;
@@ -58,8 +62,9 @@ export interface StudentFee {
   created_at?: string;
   // joined fields
   fund_title?: string;
-  fee_type?: 'MONTHLY' | 'EVENT' | 'SPECIAL';
-  month_name?: string;
+  fee_type?: 'PERIOD' | 'MONTHLY' | 'EVENT';
+  period_start?: string;
+  period_end?: string;
   fund_description?: string;
   due_date?: string;
   student_name?: string;

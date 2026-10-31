@@ -85,6 +85,7 @@ function getInitialData(): LocalDbSchema {
         phone: '9847123456',
         email: 'radhika@example.com',
         batch: 'Bharatanatyam - Senior Batch',
+        discount_amount: 500, // Sibling concession
         password: 'dance@2026',
         password_hash: hashPassword('dance@2026'),
         role: 'STUDENT',
@@ -99,6 +100,7 @@ function getInitialData(): LocalDbSchema {
         phone: '9847234567',
         email: 'suresh@example.com',
         batch: 'Kuchipudi - Beginners',
+        discount_amount: 0,
         password: 'dance@2026',
         password_hash: hashPassword('dance@2026'),
         role: 'STUDENT',
@@ -109,22 +111,13 @@ function getInitialData(): LocalDbSchema {
     funds: [
       {
         id: 'fund-1',
-        title: 'Monthly Dance Fee - November 2026',
-        fee_type: 'MONTHLY',
-        month_name: 'November 2026',
-        description: 'Regular monthly dance training & choreography fee for November.',
-        amount: 1000,
-        due_date: '2026-11-10',
-        batch: 'ALL',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'fund-2',
-        title: 'Annual Day Stage & Costume Fund',
-        fee_type: 'EVENT',
-        description: 'Traditional dance costumes, stage lighting, and audio orchestra setup.',
-        amount: 1500,
-        due_date: '2026-11-25',
+        title: 'Dance Term 1 Fee (Jan 1 - Mar 31)',
+        fee_type: 'PERIOD',
+        period_start: '2027-01-01',
+        period_end: '2027-03-31',
+        description: 'First quarter comprehensive dance training fee (Jan 1 to Mar 31).',
+        amount: 2000,
+        due_date: '2027-01-10',
         batch: 'ALL',
         created_at: new Date().toISOString(),
       },
@@ -134,28 +127,20 @@ function getInitialData(): LocalDbSchema {
         id: 'fee-1',
         student_id: 'std-1',
         fund_id: 'fund-1',
-        amount: 1000,
-        status: 'PAID',
-        paid_amount: 1000,
-        paid_at: new Date().toISOString(),
-        razorpay_order_id: 'order_mock_001',
-        razorpay_payment_id: 'pay_mock_upi_001',
-        created_at: new Date().toISOString(),
-      },
-      {
-        id: 'fee-2',
-        student_id: 'std-1',
-        fund_id: 'fund-2',
-        amount: 1500,
+        amount: 1500, // 2000 - 500 discount
+        original_amount: 2000,
+        discount_applied: 500,
         status: 'PENDING',
         paid_amount: 0,
         created_at: new Date().toISOString(),
       },
       {
-        id: 'fee-3',
+        id: 'fee-2',
         student_id: 'std-2',
         fund_id: 'fund-1',
-        amount: 1000,
+        amount: 2000,
+        original_amount: 2000,
+        discount_applied: 0,
         status: 'PENDING',
         paid_amount: 0,
         created_at: new Date().toISOString(),
@@ -345,6 +330,7 @@ export async function createStudent(payload: {
   phone: string;
   email?: string;
   batch: string;
+  discount_amount?: number;
   password?: string;
 }): Promise<Student> {
   const student_id = await generateNextStudentId();
@@ -352,35 +338,47 @@ export async function createStudent(payload: {
     ? payload.password.trim() 
     : 'dance@' + Math.floor(1000 + Math.random() * 9000);
   const password_hash = hashPassword(password);
+  const discount_amount = Number(payload.discount_amount || 0);
 
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
+    const insertObj: any = {
+      student_id,
+      name: payload.name,
+      parent_name: payload.parent_name,
+      phone: payload.phone,
+      email: payload.email || '',
+      batch: payload.batch,
+      password_hash,
+      password_hint: password,
+      status: 'ACTIVE',
+    };
+    if (discount_amount > 0) insertObj.discount_amount = discount_amount;
+
+    let { data, error } = await supabase
       .from('students')
-      .insert({
-        student_id,
-        name: payload.name,
-        parent_name: payload.parent_name,
-        phone: payload.phone,
-        email: payload.email || '',
-        batch: payload.batch,
-        password_hash,
-        password_hint: password,
-        status: 'ACTIVE',
-      })
+      .insert(insertObj)
       .select()
       .single();
 
+    if (error && error.message.includes('discount_amount')) {
+      delete insertObj.discount_amount;
+      const retry = await supabase.from('students').insert(insertObj).select().single();
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (error) throw new Error(error.message);
-    const newStudent = { ...data, role: 'STUDENT' as const, password };
+    const newStudent = { ...data, role: 'STUDENT' as const, password, discount_amount };
 
     // Also assign existing active funds if applicable
     const funds = await getAllFunds();
     for (const fund of funds) {
       if (fund.batch === 'ALL' || fund.batch === payload.batch) {
+        const netAmount = Math.max(0, Number(fund.amount) - discount_amount);
         await supabase.from('student_fees').insert({
           student_id: newStudent.id,
           fund_id: fund.id,
-          amount: fund.amount,
+          amount: netAmount,
           status: 'PENDING',
         });
       }
@@ -398,6 +396,7 @@ export async function createStudent(payload: {
     phone: payload.phone,
     email: payload.email || '',
     batch: payload.batch,
+    discount_amount,
     password,
     password_hash,
     role: 'STUDENT',
@@ -409,11 +408,14 @@ export async function createStudent(payload: {
 
   db.funds.forEach((fund) => {
     if (fund.batch === 'ALL' || fund.batch === newStudent.batch) {
+      const netAmount = Math.max(0, Number(fund.amount) - discount_amount);
       db.student_fees.push({
         id: 'fee-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
         student_id: newStudent.id,
         fund_id: fund.id,
-        amount: fund.amount,
+        amount: netAmount,
+        original_amount: fund.amount,
+        discount_applied: discount_amount,
         status: 'PENDING',
         paid_amount: 0,
         created_at: new Date().toISOString(),
@@ -456,8 +458,9 @@ export async function getAllFunds(): Promise<Fund[]> {
 
 export async function createFund(payload: {
   title: string;
-  fee_type?: 'MONTHLY' | 'EVENT' | 'SPECIAL';
-  month_name?: string;
+  fee_type?: 'PERIOD' | 'MONTHLY' | 'EVENT';
+  period_start?: string;
+  period_end?: string;
   description?: string;
   amount: number;
   due_date: string;
@@ -472,7 +475,8 @@ export async function createFund(payload: {
       batch: payload.batch,
     };
     if (payload.fee_type) insertObj.fee_type = payload.fee_type;
-    if (payload.month_name) insertObj.month_name = payload.month_name;
+    if (payload.period_start) insertObj.period_start = payload.period_start;
+    if (payload.period_end) insertObj.period_end = payload.period_end;
 
     let { data: fund, error } = await supabase
       .from('funds')
@@ -480,15 +484,13 @@ export async function createFund(payload: {
       .select()
       .single();
 
-    // Fallback if fee_type column doesn't exist in Supabase table yet
-    if (error && (error.message.includes('fee_type') || error.message.includes('schema cache'))) {
+    if (error) {
+      // Fallback: If custom columns are not yet created in Supabase schema, insert standard guaranteed columns
       delete insertObj.fee_type;
+      delete insertObj.period_start;
+      delete insertObj.period_end;
       delete insertObj.month_name;
-      const retry = await supabase
-        .from('funds')
-        .insert(insertObj)
-        .select()
-        .single();
+      const retry = await supabase.from('funds').insert(insertObj).select().single();
       fund = retry.data;
       error = retry.error;
     }
@@ -501,12 +503,16 @@ export async function createFund(payload: {
     );
 
     if (eligibleStudents.length > 0 && fund) {
-      const feeInserts = eligibleStudents.map((s) => ({
-        student_id: s.id,
-        fund_id: fund.id,
-        amount: payload.amount,
-        status: 'PENDING',
-      }));
+      const feeInserts = eligibleStudents.map((s) => {
+        const discount = Number(s.discount_amount || 0);
+        const finalAmount = Math.max(0, payload.amount - discount);
+        return {
+          student_id: s.id,
+          fund_id: fund.id,
+          amount: finalAmount,
+          status: 'PENDING',
+        };
+      });
       await supabase.from('student_fees').insert(feeInserts);
     }
 
@@ -517,8 +523,9 @@ export async function createFund(payload: {
   const newFund: Fund = {
     id: 'fund-' + Date.now(),
     title: payload.title,
-    fee_type: payload.fee_type || 'MONTHLY',
-    month_name: payload.month_name || '',
+    fee_type: payload.fee_type || 'PERIOD',
+    period_start: payload.period_start,
+    period_end: payload.period_end,
     description: payload.description || '',
     amount: Number(payload.amount),
     due_date: payload.due_date,
@@ -530,11 +537,16 @@ export async function createFund(payload: {
 
   db.students.forEach((student) => {
     if (newFund.batch === 'ALL' || student.batch === newFund.batch) {
+      const discount = Number(student.discount_amount || 0);
+      const finalAmount = Math.max(0, newFund.amount - discount);
+
       db.student_fees.push({
         id: 'fee-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
         student_id: student.id,
         fund_id: newFund.id,
-        amount: newFund.amount,
+        amount: finalAmount,
+        original_amount: newFund.amount,
+        discount_applied: discount,
         status: 'PENDING',
         paid_amount: 0,
         created_at: new Date().toISOString(),
@@ -544,6 +556,25 @@ export async function createFund(payload: {
 
   writeLocalDb(db);
   return newFund;
+}
+
+export async function updateFeeAmount(feeId: string, newAmount: number): Promise<boolean> {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('student_fees')
+      .update({ amount: Number(newAmount) })
+      .eq('id', feeId);
+    return !error;
+  }
+
+  const db = readLocalDb();
+  const fee = db.student_fees.find((f) => f.id === feeId);
+  if (fee) {
+    fee.amount = Number(newAmount);
+    writeLocalDb(db);
+    return true;
+  }
+  return false;
 }
 
 export async function getStudentFees(studentIdOrUuid: string): Promise<StudentFee[]> {
@@ -567,11 +598,16 @@ export async function getStudentFees(studentIdOrUuid: string): Promise<StudentFe
 
     return data.map((fee) => {
       const fund = fundsMap.get(fee.fund_id);
+      const original = fund ? Number(fund.amount) : Number(fee.amount);
+      const discount = Math.max(0, original - Number(fee.amount));
       return {
         ...fee,
+        original_amount: fee.original_amount ?? original,
+        discount_applied: fee.discount_applied ?? discount,
         fund_title: fund?.title || 'Dance Academy Fee',
-        fee_type: fund?.fee_type || 'MONTHLY',
-        month_name: fund?.month_name || '',
+        fee_type: fund?.fee_type || 'PERIOD',
+        period_start: fund?.period_start,
+        period_end: fund?.period_end,
         fund_description: fund?.description || '',
         due_date: fund?.due_date || '',
         student_name: currentStudent.name,
@@ -588,11 +624,16 @@ export async function getStudentFees(studentIdOrUuid: string): Promise<StudentFe
     .filter((f) => f.student_id === currentStudent.id)
     .map((fee) => {
       const fund = fundsMap.get(fee.fund_id);
+      const original = fund ? Number(fund.amount) : Number(fee.amount);
+      const discount = Math.max(0, original - Number(fee.amount));
       return {
         ...fee,
+        original_amount: fee.original_amount ?? original,
+        discount_applied: fee.discount_applied ?? discount,
         fund_title: fund?.title || 'Dance Academy Fee',
-        fee_type: fund?.fee_type || 'MONTHLY',
-        month_name: fund?.month_name || '',
+        fee_type: fund?.fee_type || 'PERIOD',
+        period_start: fund?.period_start,
+        period_end: fund?.period_end,
         fund_description: fund?.description || '',
         due_date: fund?.due_date || '',
         student_name: currentStudent.name,
@@ -622,11 +663,16 @@ export async function getAllStudentFees(): Promise<StudentFee[]> {
     return data.map((fee) => {
       const student = studentMap.get(fee.student_id);
       const fund = fundMap.get(fee.fund_id);
+      const original = fund ? Number(fund.amount) : Number(fee.amount);
+      const discount = Math.max(0, original - Number(fee.amount));
       return {
         ...fee,
+        original_amount: fee.original_amount ?? original,
+        discount_applied: fee.discount_applied ?? discount,
         fund_title: fund?.title || 'Fee',
-        fee_type: fund?.fee_type || 'MONTHLY',
-        month_name: fund?.month_name || '',
+        fee_type: fund?.fee_type || 'PERIOD',
+        period_start: fund?.period_start,
+        period_end: fund?.period_end,
         due_date: fund?.due_date || '',
         student_name: student?.name || 'Unknown',
         student_code: student?.student_id || '',
@@ -641,11 +687,16 @@ export async function getAllStudentFees(): Promise<StudentFee[]> {
   return db.student_fees.map((fee) => {
     const student = studentMap.get(fee.student_id);
     const fund = fundMap.get(fee.fund_id);
+    const original = fund ? Number(fund.amount) : Number(fee.amount);
+    const discount = Math.max(0, original - Number(fee.amount));
     return {
       ...fee,
+      original_amount: fee.original_amount ?? original,
+      discount_applied: fee.discount_applied ?? discount,
       fund_title: fund?.title || 'Fee',
-      fee_type: fund?.fee_type || 'MONTHLY',
-      month_name: fund?.month_name || '',
+      fee_type: fund?.fee_type || 'PERIOD',
+      period_start: fund?.period_start,
+      period_end: fund?.period_end,
       due_date: fund?.due_date || '',
       student_name: student?.name || 'Unknown',
       student_code: student?.student_id || '',

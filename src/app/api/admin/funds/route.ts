@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { title, fee_type, month_name, description, amount, due_date, batch } = body;
+    const { title, fee_type, period_start, period_end, description, amount, due_date, batch } = body;
 
     if (!title || !amount || !due_date) {
       return NextResponse.json(
@@ -31,8 +31,9 @@ export async function POST(req: NextRequest) {
 
     const fund = await createFund({
       title,
-      fee_type: fee_type || 'MONTHLY',
-      month_name: month_name || '',
+      fee_type: fee_type || 'PERIOD',
+      period_start,
+      period_end,
       description,
       amount: Number(amount),
       due_date,

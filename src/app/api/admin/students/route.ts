@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, parent_name, phone, email, batch, password } = body;
+    const { name, parent_name, phone, email, batch, password, discount_amount } = body;
 
     if (!name || !parent_name || !phone || !batch) {
       return NextResponse.json(
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       email,
       batch,
       password,
+      discount_amount: Number(discount_amount || 0),
     });
 
     return NextResponse.json({
