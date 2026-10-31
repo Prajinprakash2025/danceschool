@@ -34,6 +34,7 @@ import {
   Edit2,
   Gift,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Student, Fund, StudentFee, Batch, DashboardStats } from '@/types';
 
 export default function AdminDashboard() {
@@ -234,7 +235,7 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to enroll student');
+        toast.error(data.error || 'Failed to enroll student');
         return;
       }
 
@@ -251,9 +252,9 @@ export default function AdminDashboard() {
         fee_due_day: '',
       });
       await fetchDashboardData();
-      alert(`Student enrolled successfully! Auto-generated ID: ${data.student.student_id}`);
+      toast.success(`🎉 Student enrolled successfully! Auto-generated ID: ${data.student.student_id}`);
     } catch (err: any) {
-      alert(err.message || 'Error enrolling student');
+      toast.error(err.message || 'Error enrolling student');
     } finally {
       setSavingStudent(false);
     }
@@ -288,15 +289,15 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to update student profile');
+        toast.error(data.error || 'Failed to update student profile');
         return;
       }
 
       setEditingStudent(null);
       await fetchDashboardData();
-      alert('Student profile & fee settings updated successfully!');
+      toast.success('🎉 Student profile & fee settings updated successfully!');
     } catch (err: any) {
-      alert(err.message || 'Error updating student');
+      toast.error(err.message || 'Error updating student');
     } finally {
       setSavingStudent(false);
     }
@@ -309,11 +310,12 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/admin/students/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchDashboardData();
+        toast.success(`Student "${name}" removed`);
       } else {
-        alert('Could not delete student');
+        toast.error('Could not delete student');
       }
     } catch {
-      alert('Error deleting student');
+      toast.error('Error deleting student');
     }
   };
 
@@ -330,7 +332,7 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to create batch');
+        toast.error(data.error || 'Failed to create batch');
         return;
       }
 
@@ -342,9 +344,9 @@ export default function AdminDashboard() {
         monthly_fee: '1000',
       });
       await fetchDashboardData();
-      alert('Dance Batch created successfully!');
+      toast.success('🎉 Dance Batch created successfully!');
     } catch (err: any) {
-      alert(err.message || 'Error creating batch');
+      toast.error(err.message || 'Error creating batch');
     } finally {
       setSavingBatch(false);
     }
@@ -374,15 +376,15 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to update batch');
+        toast.error(data.error || 'Failed to update batch');
         return;
       }
 
       setEditingBatch(null);
       await fetchDashboardData();
-      alert('Dance batch updated successfully!');
+      toast.success('🎉 Dance batch updated successfully!');
     } catch (err: any) {
-      alert(err.message || 'Error updating batch');
+      toast.error(err.message || 'Error updating batch');
     } finally {
       setSavingBatch(false);
     }
@@ -395,11 +397,12 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/admin/batches/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchDashboardData();
+        toast.success(`Batch "${name}" deleted`);
       } else {
-        alert('Could not delete batch');
+        toast.error('Could not delete batch');
       }
     } catch {
-      alert('Error deleting batch');
+      toast.error('Error deleting batch');
     }
   };
 
@@ -419,15 +422,15 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to create fee');
+        toast.error(data.error || 'Failed to create fee');
         return;
       }
 
       setShowAddFund(false);
       await fetchDashboardData();
-      alert('Fee Demand created! Students with enrolled discounts received their automatic deduction.');
+      toast.success('🎉 Fee demand created and assigned to students!');
     } catch (err: any) {
-      alert(err.message || 'Error creating fee');
+      toast.error(err.message || 'Error creating fee');
     } finally {
       setSavingFund(false);
     }
@@ -460,15 +463,15 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to update fee campaign');
+        toast.error(data.error || 'Failed to update fee campaign');
         return;
       }
 
       setEditingFund(null);
       await fetchDashboardData();
-      alert('Fee demand & prices updated successfully!');
+      toast.success('🎉 Fee demand & prices updated successfully!');
     } catch (err: any) {
-      alert(err.message || 'Error updating fee');
+      toast.error(err.message || 'Error updating fee');
     } finally {
       setSavingFund(false);
     }
@@ -480,12 +483,12 @@ export default function AdminDashboard() {
       const res = await fetch(`/api/admin/funds/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchDashboardData();
-        alert('Fee campaign removed successfully');
+        toast.success('Fee campaign removed successfully');
       } else {
-        alert('Could not delete fee');
+        toast.error('Could not delete fee');
       }
     } catch {
-      alert('Error deleting fee');
+      toast.error('Error deleting fee');
     }
   };
 
@@ -503,12 +506,28 @@ export default function AdminDashboard() {
       if (res.ok) {
         setEditingFee(null);
         await fetchDashboardData();
-        alert('Fee details updated successfully!');
+        toast.success('🎉 Fee details updated successfully!');
       } else {
-        alert('Could not update fee amount');
+        toast.error('Could not update fee amount');
       }
     } catch {
-      alert('Error updating fee');
+      toast.error('Error updating fee');
+    }
+  };
+
+  const handleSeedDemoData = async () => {
+    try {
+      toast.info('Loading client demo records...');
+      const res = await fetch('/api/admin/seed', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchDashboardData();
+        toast.success('🎉 Demo showcase data loaded with pending fees & receipts!');
+      } else {
+        toast.error(data.error || 'Failed to seed demo data');
+      }
+    } catch {
+      toast.error('Network error seeding data');
     }
   };
 
@@ -516,6 +535,7 @@ export default function AdminDashboard() {
     const text = `Natyanjali Dance Academy Login:\nStudent: ${student.name}\nStudent ID: ${student.student_id}\nPassword: ${student.password || 'dance@2026'}\nPortal: ${window.location.origin}/login?role=student`;
     navigator.clipboard.writeText(text);
     setCopySuccess(student.id);
+    toast.success(`📋 Login credentials for ${student.name} copied!`);
     setTimeout(() => setCopySuccess(null), 3000);
   };
 
@@ -723,6 +743,15 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleSeedDemoData}
+              title="Populate test data for client presentation"
+              className="px-3.5 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Load Demo Data</span>
+            </button>
             {activeTab === 'students' && (
               <button
                 onClick={() => setShowAddStudent(true)}
@@ -883,22 +912,105 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <select
-                value={batchFilter}
-                onChange={(e) => setBatchFilter(e.target.value)}
-                className="px-3 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs sm:text-sm text-stone-300 focus:outline-none"
-              >
-                <option value="ALL">All Batches</option>
-                {batches.map((b) => (
-                  <option key={b.id} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={batchFilter}
+                  onChange={(e) => setBatchFilter(e.target.value)}
+                  className="flex-1 sm:flex-none px-3 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs sm:text-sm text-stone-300 focus:outline-none"
+                >
+                  <option value="ALL">All Batches</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleSeedDemoData}
+                  title="Generate realistic showcase demo data for client"
+                  className="px-3 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> 
+                  <span className="hidden sm:inline">Load Demo Data</span>
+                  <span className="sm:hidden">Demo</span>
+                </button>
+              </div>
             </div>
 
             <div className="bg-stone-900 rounded-2xl border border-stone-800 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* MOBILE CARD VIEW (Active on phones < 640px) */}
+              <div className="sm:hidden divide-y divide-stone-800/80">
+                {filteredStudents.length === 0 ? (
+                  <div className="py-10 text-center text-stone-500 text-xs">
+                    No students found. Click &quot;+ Enroll Student&quot; above.
+                  </div>
+                ) : (
+                  filteredStudents.map((std) => (
+                    <div key={std.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="font-mono text-[11px] font-bold text-orange-400 bg-orange-950/50 border border-orange-800/50 px-2 py-0.5 rounded">
+                            {std.student_id}
+                          </span>
+                          <h4 className="font-bold text-white text-base mt-1.5 leading-tight">{std.name}</h4>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => openEditStudent(std)}
+                            className="p-2 rounded-xl bg-stone-800 text-amber-400 hover:text-white"
+                            title="Edit Student"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStudent(std.id, std.name)}
+                            className="p-2 rounded-xl bg-stone-800 text-rose-400 hover:text-white"
+                            title="Delete Student"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-stone-950 p-2.5 rounded-xl border border-stone-800">
+                          <span className="text-[10px] text-stone-500 uppercase block">Parent & Phone</span>
+                          <strong className="text-stone-200 block truncate">{std.parent_name}</strong>
+                          <span className="text-[11px] font-mono text-stone-400">{std.phone}</span>
+                        </div>
+                        <div className="bg-stone-950 p-2.5 rounded-xl border border-stone-800">
+                          <span className="text-[10px] text-stone-500 uppercase block">Dance Batch</span>
+                          <strong className="text-amber-300 block truncate">{std.batch}</strong>
+                          <span className="text-[10px] text-stone-400 block mt-0.5">
+                            Due on {std.fee_due_day || (std.joining_date ? new Date(std.joining_date).getDate() : 1)}th
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-800/60">
+                        {Number(std.discount_amount || 0) > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <Gift className="w-3 h-3" /> -₹{std.discount_amount} Off
+                          </span>
+                        ) : (
+                          <span className="text-stone-500 text-[11px]">No Discount</span>
+                        )}
+                        <button
+                          onClick={() => copyCredentials(std)}
+                          className="px-2.5 py-1 rounded-lg bg-stone-950 border border-stone-800 text-stone-300 hover:text-white text-xs font-mono inline-flex items-center gap-1.5"
+                        >
+                          <span>{std.password || 'dance@2026'}</span>
+                          <Share2 className="w-3 h-3 text-orange-400" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* DESKTOP TABLE VIEW (Active on screens >= 640px) */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left text-xs sm:text-sm">
                   <thead className="bg-stone-950 text-stone-400 uppercase tracking-wider text-[11px] border-b border-stone-800">
                     <tr>
@@ -915,7 +1027,7 @@ export default function AdminDashboard() {
                     {filteredStudents.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="py-12 text-center text-stone-500">
-                          No students found. Click "+ Enroll Student" above.
+                          No students found. Click &quot;+ Enroll Student&quot; above.
                         </td>
                       </tr>
                     ) : (
@@ -1177,7 +1289,80 @@ export default function AdminDashboard() {
             </div>
 
             <div className="bg-stone-900 rounded-2xl border border-stone-800 overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* MOBILE CARD VIEW FOR PAYMENT RECORDS */}
+              <div className="sm:hidden divide-y divide-stone-800/80">
+                {filteredFees.length === 0 ? (
+                  <div className="py-10 text-center text-stone-500 text-xs">
+                    No fee records found.
+                  </div>
+                ) : (
+                  filteredFees.map((fee) => (
+                    <div key={fee.id} className="p-4 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="font-mono text-[10px] text-orange-400 bg-orange-950/40 border border-orange-800/40 px-1.5 py-0.5 rounded font-bold">
+                            {fee.student_code}
+                          </span>
+                          <h4 className="font-bold text-white text-sm mt-1">{fee.student_name}</h4>
+                          <span className="text-[11px] text-amber-300 block">{fee.batch}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-base font-black text-white">
+                            ₹{Number(fee.amount).toLocaleString('en-IN')}
+                          </div>
+                          {Number(fee.discount_applied || 0) > 0 && (
+                            <span className="text-[10px] text-emerald-400 font-medium block">
+                              -₹{fee.discount_applied} Off
+                            </span>
+                          )}
+                          <div className="mt-1">
+                            {fee.status === 'PAID' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <CheckCircle2 className="w-3 h-3" /> PAID
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                <Clock className="w-3 h-3" /> PENDING
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-stone-400 bg-stone-950 p-2.5 rounded-xl border border-stone-800">
+                        <span className="truncate pr-2 font-medium text-stone-300">{fee.fund_title}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {fee.status === 'PENDING' && (
+                            <button
+                              onClick={() =>
+                                setEditingFee({
+                                  id: fee.id,
+                                  amount: String(fee.amount),
+                                  due_date: fee.due_date || '',
+                                  studentName: fee.student_name || '',
+                                })
+                              }
+                              title="Adjust Fee"
+                              className="p-1.5 rounded-lg bg-stone-800 text-amber-400"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedPaymentDetail(fee)}
+                            className="px-2.5 py-1 rounded-lg bg-stone-800 text-stone-200 text-xs font-semibold"
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* DESKTOP TABLE VIEW */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left text-xs sm:text-sm">
                   <thead className="bg-stone-950 text-stone-400 uppercase tracking-wider text-[11px] border-b border-stone-800">
                     <tr>

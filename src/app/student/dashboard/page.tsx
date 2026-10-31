@@ -21,6 +21,7 @@ import {
   Layers,
   Tag,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Student, StudentFee } from '@/types';
 import { loadRazorpayScript } from '@/lib/loadRazorpay';
 
@@ -87,7 +88,7 @@ export default function StudentDashboard() {
 
       const orderData = await orderRes.json();
       if (!orderRes.ok) {
-        alert(orderData.error || 'Failed to initialize payment');
+        toast.error(orderData.error || 'Failed to initialize payment');
         return;
       }
 
@@ -102,7 +103,7 @@ export default function StudentDashboard() {
 
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
-        alert('Could not load Razorpay SDK. Check your internet connection.');
+        toast.error('Could not load Razorpay SDK. Check your internet connection.');
         return;
       }
 
@@ -135,21 +136,21 @@ export default function StudentDashboard() {
 
           const verifyData = await verifyRes.json();
           if (verifyRes.ok) {
-            alert('🎉 Payment completed successfully!');
+            toast.success('🎉 Payment completed successfully! Receipt generated.');
             await fetchStudentData();
           } else {
-            alert(verifyData.error || 'Payment verification failed');
+            toast.error(verifyData.error || 'Payment verification failed');
           }
         },
       };
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', function (response: any) {
-        alert(`Payment failed: ${response.error.description}`);
+        toast.error(`Payment failed: ${response.error.description}`);
       });
       rzp.open();
     } catch (err: any) {
-      alert(err.message || 'Payment initiation failed');
+      toast.error(err.message || 'Payment initiation failed');
     } finally {
       setPayingFeeId(null);
     }
@@ -173,13 +174,13 @@ export default function StudentDashboard() {
 
       if (verifyRes.ok) {
         setMockPaymentModal({ isOpen: false, orderId: '', fee: null });
-        alert(`🎉 Payment of ₹${mockPaymentModal.fee.amount} via ${mode} was successful!`);
+        toast.success(`🎉 Payment of ₹${mockPaymentModal.fee.amount} via ${mode} was successful!`);
         await fetchStudentData();
       } else {
-        alert('Could not verify mock payment');
+        toast.error('Could not verify mock payment');
       }
     } catch {
-      alert('Mock payment failed');
+      toast.error('Mock payment failed');
     }
   };
 

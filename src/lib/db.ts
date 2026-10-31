@@ -539,6 +539,21 @@ export async function updateStudent(
     }
 
     if (error || !data) {
+      // Secondary attempt with reversed column (if student_id was used instead of uuid or vice-versa)
+      const altCol = idCol === 'id' ? 'student_id' : 'id';
+      const retryAlt = await supabase
+        .from('students')
+        .update(supabaseUpdateObj)
+        .eq(altCol, id)
+        .select()
+        .single();
+      if (!retryAlt.error && retryAlt.data) {
+        data = retryAlt.data;
+        error = null;
+      }
+    }
+
+    if (error || !data) {
       console.error('Supabase update student error:', error);
       return null;
     }
@@ -789,6 +804,8 @@ export async function updateFund(
     if (error) {
       delete updateObj.period_start;
       delete updateObj.period_end;
+      delete updateObj.fee_type;
+      delete updateObj.month_name;
       const retry = await supabase
         .from('funds')
         .update(updateObj)
@@ -910,11 +927,34 @@ export async function getStudentFees(studentIdOrUuid: string): Promise<StudentFe
   const fundsMap = new Map(funds.map((f) => [f.id, f]));
 
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('student_fees')
       .select('*')
       .eq('student_id', currentStudent.id)
       .order('created_at', { ascending: false });
+
+    // If student has no fees assigned, auto-assign active funds!
+    if ((!data || data.length === 0) && funds.length > 0) {
+      const feeInserts = funds.map((fund) => {
+        const discount = Number(currentStudent.discount_amount || 0);
+        const netAmount = Math.max(0, Number(fund.amount) - discount);
+        return {
+          student_id: currentStudent.id,
+          fund_id: fund.id,
+          amount: netAmount,
+          status: 'PENDING',
+        };
+      });
+      await supabase.from('student_fees').insert(feeInserts);
+      const refetch = await supabase
+        .from('student_fees')
+        .select('*')
+        .eq('student_id', currentStudent.id)
+        .order('created_at', { ascending: false });
+      if (refetch.data && refetch.data.length > 0) {
+        data = refetch.data;
+      }
+    }
 
     if (error || !data) return [];
 
@@ -942,8 +982,30 @@ export async function getStudentFees(studentIdOrUuid: string): Promise<StudentFe
   }
 
   const db = readLocalDb();
-  const fees = db.student_fees
-    .filter((f) => f.student_id === currentStudent.id)
+  let studentFees = db.student_fees.filter((f) => f.student_id === currentStudent.id);
+
+  if (studentFees.length === 0 && funds.length > 0) {
+    funds.forEach((fund) => {
+      const discount = Number(currentStudent.discount_amount || 0);
+      const netAmount = Math.max(0, Number(fund.amount) - discount);
+      const newFee = {
+        id: 'fee-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+        student_id: currentStudent.id,
+        fund_id: fund.id,
+        amount: netAmount,
+        original_amount: Number(fund.amount),
+        discount_applied: discount,
+        status: 'PENDING' as const,
+        paid_amount: 0,
+        created_at: new Date().toISOString(),
+      };
+      db.student_fees.push(newFee);
+      studentFees.push(newFee);
+    });
+    writeLocalDb(db);
+  }
+
+  const fees = studentFees
     .map((fee) => {
       const fund = fundsMap.get(fee.fund_id);
       const original = fund ? Number(fund.amount) : Number(fee.amount);
@@ -1094,5 +1156,175 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalPending,
     activeBatches: batches.length,
     recentTransactions,
+  };
+}
+
+export async function seedDemoData(): Promise<{ success: boolean; students: number; funds: number; fees: number }> {
+  // 1. Create Classical Dance Batches
+  const sampleBatches = [
+    { name: 'Mohiniyattam - Classical', timing: 'Mon, Wed 5:00 PM', instructor: 'Guru Radhika', monthly_fee: 1500 },
+    { name: 'Bharatanatyam - Senior Batch', timing: 'Sat, Sun 10:00 AM', instructor: 'Guru Jayasree', monthly_fee: 1200 },
+    { name: 'Kuchipudi - Beginners & Junior', timing: 'Tue, Thu 6:00 PM', instructor: 'Guru Suresh', monthly_fee: 1200 },
+    { name: 'Kathak & Folk Rhythms', timing: 'Friday 5:30 PM', instructor: 'Guru Meenakshi', monthly_fee: 1500 },
+  ];
+
+  for (const b of sampleBatches) {
+    try {
+      await createBatch(b);
+    } catch {}
+  }
+
+  // 2. Ensure Sample Students
+  const sampleStudents = [
+    {
+      name: 'Ram Prakash',
+      parent_name: 'Prakash K',
+      phone: '8888888888',
+      email: 'prakash@example.com',
+      batch: 'Mohiniyattam - Classical',
+      discount_amount: 200,
+      joining_date: '2026-10-31',
+      fee_due_day: 1,
+      password: 'dance@2026',
+    },
+    {
+      name: 'Arundhati Menon',
+      parent_name: 'Radhika Menon',
+      phone: '9847123456',
+      email: 'radhika@example.com',
+      batch: 'Bharatanatyam - Senior Batch',
+      discount_amount: 500,
+      joining_date: '2026-03-23',
+      fee_due_day: 23,
+      password: 'dance@2026',
+    },
+    {
+      name: 'Meera Krishnan',
+      parent_name: 'Krishnan Namboothiri',
+      phone: '9447112233',
+      email: 'meera@example.com',
+      batch: 'Kuchipudi - Beginners & Junior',
+      discount_amount: 0,
+      joining_date: '2026-05-15',
+      fee_due_day: 15,
+      password: 'dance@2026',
+    },
+  ];
+
+  const currentStudents = await getAllStudents();
+  for (const s of sampleStudents) {
+    const found = currentStudents.find(
+      (x) => x.phone === s.phone || x.name.toLowerCase() === s.name.toLowerCase()
+    );
+    if (!found) {
+      try {
+        await createStudent(s);
+      } catch {}
+    }
+  }
+
+  // 3. Create Sample Fee Demands (Funds)
+  const sampleFunds = [
+    {
+      title: 'Dance Term 1 Fee (Jan 1 - Mar 31)',
+      fee_type: 'PERIOD' as const,
+      period_start: '2027-01-01',
+      period_end: '2027-03-31',
+      description: 'First quarter comprehensive classical dance training & choreography fee.',
+      amount: 2000,
+      due_date: '2027-01-10',
+      batch: 'ALL',
+    },
+    {
+      title: 'Annual Classical Costume & Stage Fund',
+      fee_type: 'EVENT' as const,
+      description: 'Stage jewelry, silk costumes, and orchestra rehearsal fee for academy festival.',
+      amount: 1500,
+      due_date: '2026-11-20',
+      batch: 'ALL',
+    },
+    {
+      title: 'Monthly Dance Tuition - October 2026',
+      fee_type: 'MONTHLY' as const,
+      description: 'Regular monthly dance tuition for October.',
+      amount: 1200,
+      due_date: '2026-10-05',
+      batch: 'ALL',
+    },
+  ];
+
+  const currentFunds = await getAllFunds();
+  for (const f of sampleFunds) {
+    const found = currentFunds.find((x) => x.title === f.title);
+    if (!found) {
+      try {
+        await createFund(f);
+      } catch {}
+    }
+  }
+
+  // 4. Ensure all students (including existing ones like 'ram') have active funds assigned
+  const allCurrentStudents = await getAllStudents();
+  const allCurrentFunds = await getAllFunds();
+  const allExistingFees = await getAllStudentFees();
+
+  for (const std of allCurrentStudents) {
+    const studentFeeList = allExistingFees.filter((f) => f.student_id === std.id || f.student_code === std.student_id);
+    if (studentFeeList.length === 0) {
+      for (const f of allCurrentFunds) {
+        if (f.batch === 'ALL' || f.batch === std.batch) {
+          const discount = Number(std.discount_amount || 0);
+          const finalAmount = Math.max(0, Number(f.amount) - discount);
+          if (isSupabaseConfigured && supabase) {
+            try {
+              await supabase.from('student_fees').insert({
+                student_id: std.id,
+                fund_id: f.id,
+                amount: finalAmount,
+                status: 'PENDING',
+              });
+            } catch {}
+          } else {
+            const db = readLocalDb();
+            db.student_fees.push({
+              id: 'fee-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+              student_id: std.id,
+              fund_id: f.id,
+              amount: finalAmount,
+              original_amount: Number(f.amount),
+              discount_applied: discount,
+              status: 'PENDING',
+              paid_amount: 0,
+              created_at: new Date().toISOString(),
+            });
+            writeLocalDb(db);
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Mark October fee as PAID for sample students so receipts show up!
+  const fundsNow = await getAllFunds();
+  const octFund = fundsNow.find((f) => f.title.includes('October 2026'));
+  if (octFund) {
+    const allFees = await getAllStudentFees();
+    const octFees = allFees.filter((f) => f.fund_id === octFund.id && f.status === 'PENDING');
+    for (const fee of octFees) {
+      try {
+        await markFeeAsPaid(
+          fee.id,
+          'order_demo_' + Date.now(),
+          'pay_rzp_mock_live' + Math.floor(1000 + Math.random() * 9000)
+        );
+      } catch {}
+    }
+  }
+
+  return {
+    success: true,
+    students: (await getAllStudents()).length,
+    funds: (await getAllFunds()).length,
+    fees: (await getAllStudentFees()).length,
   };
 }
